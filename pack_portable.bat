@@ -26,8 +26,10 @@ copy "start.bat" "%STAGE_DIR%\" > nul
 copy "stop.bat" "%STAGE_DIR%\" > nul
 copy "config.example.json" "%STAGE_DIR%\config.json" > nul
 copy "README.md" "%STAGE_DIR%\" > nul
+copy "README_EN.md" "%STAGE_DIR%\" > nul
 copy "LICENSE" "%STAGE_DIR%\" > nul
 copy "requirements.txt" "%STAGE_DIR%\" > nul
+if exist "docs" xcopy "docs" "%STAGE_DIR%\docs" /E /I /Q /Y > nul
 
 echo [3/4] Copying static assets and templates...
 xcopy "static" "%STAGE_DIR%\static" /E /I /Q /Y > nul

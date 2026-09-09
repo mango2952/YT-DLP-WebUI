@@ -24,6 +24,9 @@
         <button class="nav-tab" data-tab="settings" role="tab" data-i18n="tabSettings">设置</button>
       </nav>
       <div class="header-actions">
+        <button id="btn-header-donate" class="btn btn-ghost btn-sm header-donate-btn" title="赞助作者 / Sponsor">
+          <span>☕</span> <span data-i18n="btnDonate">赞助</span>
+        </button>
         <button id="lang-toggle" class="btn-icon" title="切换语言 / Switch Language" aria-label="Toggle language">
           <span id="lang-label">EN</span>
         </button>
@@ -342,6 +345,29 @@
           <div class="hint" data-i18n="logsHint">下载出错时，将日志文件发送给开发者以便排查问题</div>
         </div>
 
+        <!-- 关于与赞助支持 -->
+        <div class="card settings-card">
+          <div class="card-header">
+            <h2 class="card-title" data-i18n="settingAbout">关于与支持</h2>
+          </div>
+          <div class="about-card-body">
+            <div class="about-contact-row">
+              <span class="about-icon">📬</span>
+              <div class="about-contact-info">
+                <div class="about-contact-title" data-i18n="contactTitle">意见反馈与问题排查</div>
+                <div class="about-contact-desc" data-i18n="contactDesc">若遇到下载报错，请点击任务卡片上的【导出日志】，将生成的 log 文件发送至作者邮箱：</div>
+                <a href="mailto:torresgoal@163.com?subject=YT-DLP%20WebUI%20日志反馈" class="about-email-link">📧 torresgoal@163.com</a>
+              </div>
+            </div>
+            <div class="about-donate-row">
+              <button type="button" id="btn-settings-donate" class="btn btn-secondary btn-sm">
+                <span>☕</span> <span data-i18n="btnDonate">赞助支持</span>
+              </button>
+              <span class="about-donate-desc" data-i18n="donateDesc">如果您觉得工具好用，欢迎请作者喝杯咖啡 ☕</span>
+            </div>
+          </div>
+        </div>
+
         <!-- 保存按钮 -->
         <div class="settings-save-row">
           <button id="btn-save-settings" class="btn btn-primary" data-i18n="btnSave">💾 保存设置</button>
@@ -437,6 +463,37 @@
       </div>
       <div class="modal-body">
         <pre id="log-modal-content" class="log-code"></pre>
+      </div>
+      <div class="modal-footer-hint">
+        <span>💡 <span data-i18n="logModalHint">如遇软件报错，可点击【导出】将日志文件发送至作者邮箱：</span><a href="mailto:torresgoal@163.com?subject=YT-DLP%20WebUI%20日志反馈" class="link-text">torresgoal@163.com</a></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 赞助与捐赠模态框 ══ -->
+  <div id="donate-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-dialog donate-dialog">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">☕</span>
+          <span class="modal-title" data-i18n="donateTitle">赞助与支持</span>
+        </div>
+        <button id="btn-close-donate" class="btn btn-ghost btn-sm modal-close" title="关闭">✕</button>
+      </div>
+      <div class="modal-body donate-modal-body">
+        <div class="donate-card">
+          <p class="donate-intro" data-i18n="donateDesc">如果您觉得 YT-DLP WebUI 对您有帮助，欢迎请作者喝一杯咖啡 ☕</p>
+          <div class="donate-qr-wrapper">
+            <img src="/static/donate.jpg" alt="微信支付赞助码" class="donate-qr-img" />
+          </div>
+          <div class="donate-footer-info">
+            <div class="donate-badge">推荐使用微信支付</div>
+            <div class="donate-email-tip">
+              <span>📬 问题反馈与日志发送：</span>
+              <a href="mailto:torresgoal@163.com?subject=YT-DLP%20WebUI%20问题反馈" class="link-text">torresgoal@163.com</a>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

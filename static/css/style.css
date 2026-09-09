@@ -1183,6 +1183,168 @@ body {
   line-height: 1.5;
 }
 
+/* ── 顶部赞助按钮 ────────────────────────────────────────────────────────── */
+.header-donate-btn {
+  color: #f6ad55 !important;
+  border-color: rgba(246, 173, 85, 0.3) !important;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all var(--tr-fast);
+}
+.header-donate-btn:hover {
+  background: rgba(246, 173, 85, 0.12) !important;
+  border-color: rgba(246, 173, 85, 0.6) !important;
+  transform: translateY(-1px);
+}
+
+/* ── 日志弹窗底部提示 ────────────────────────────────────────────────────── */
+.modal-footer-hint {
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.modal-footer-hint .link-text {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.modal-footer-hint .link-text:hover {
+  text-decoration: underline;
+}
+
+/* ── 设置卡片: 关于与支持 ────────────────────────────────────────────────── */
+.about-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0;
+}
+.about-contact-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.about-icon {
+  font-size: 20px;
+  line-height: 1.2;
+}
+.about-contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.about-contact-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.about-contact-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.about-email-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 2px;
+}
+.about-email-link:hover {
+  text-decoration: underline;
+}
+.about-donate-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px;
+  flex-wrap: wrap;
+}
+.about-donate-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── 赞助模态框 ──────────────────────────────────────────────────────────── */
+.donate-dialog {
+  max-width: 420px;
+  text-align: center;
+}
+.donate-modal-body {
+  padding: 24px 20px 20px;
+}
+.donate-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.donate-intro {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+.donate-qr-wrapper {
+  background: #ffffff;
+  padding: 10px;
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--tr-fast);
+}
+.donate-qr-wrapper:hover {
+  transform: scale(1.02);
+}
+.donate-qr-img {
+  display: block;
+  width: 240px;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+.donate-footer-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.donate-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2ba245;
+  background: rgba(43, 162, 69, 0.12);
+  border: 1px solid rgba(43, 162, 69, 0.3);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.donate-email-tip {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.donate-email-tip .link-text {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.donate-email-tip .link-text:hover {
+  text-decoration: underline;
+}
+
+
+
 /* ── Utilities ────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }
 

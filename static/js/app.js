@@ -91,6 +91,13 @@ const I18N = {
     errorTypeUnavailable: '🚫 视频不可用',
     errorTypeFormat: '⚙️ 格式问题',
     errorTypeDisk: '💾 磁盘不足',
+    btnDonate: '赞助',
+    donateTitle: '☕ 赞助与支持',
+    donateDesc: '如果您觉得 YT-DLP WebUI 对您有帮助，欢迎请作者喝一杯咖啡 ☕',
+    settingAbout: '关于与支持',
+    contactTitle: '意见反馈与问题排查',
+    contactDesc: '若遇到下载报错，请点击任务卡片上的【导出日志】，将生成的 log 文件发送至作者邮箱：',
+    logModalHint: '如遇软件报错，可点击【导出】将日志文件发送至作者邮箱：',
   },
   en: {
     appName: 'YT-DLP WebUI',
@@ -174,6 +181,13 @@ const I18N = {
     errorTypeUnavailable: '🚫 Video Unavailable',
     errorTypeFormat: '⚙️ Format Issue',
     errorTypeDisk: '💾 Disk Full',
+    btnDonate: 'Donate',
+    donateTitle: '☕ Sponsor & Support',
+    donateDesc: 'If you find YT-DLP WebUI helpful, consider buying the author a coffee ☕',
+    settingAbout: 'About & Support',
+    contactTitle: 'Feedback & Troubleshooting',
+    contactDesc: 'If a download fails, export the log file and email to:',
+    logModalHint: 'If you encounter an error, export and email logs to:',
   },
 };
 
@@ -740,6 +754,16 @@ function closeLogModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+function openDonateModal() {
+  const modal = document.getElementById('donate-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeDonateModal() {
+  const modal = document.getElementById('donate-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
 function copyModalLog() {
   const content = document.getElementById('log-modal-content').textContent;
   if (!content) return;
@@ -1180,10 +1204,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 赞助模态框绑定
+  const btnHeaderDonate = document.getElementById('btn-header-donate');
+  if (btnHeaderDonate) btnHeaderDonate.addEventListener('click', openDonateModal);
+
+  const btnSettingsDonate = document.getElementById('btn-settings-donate');
+  if (btnSettingsDonate) btnSettingsDonate.addEventListener('click', openDonateModal);
+
+  const btnCloseDonate = document.getElementById('btn-close-donate');
+  if (btnCloseDonate) btnCloseDonate.addEventListener('click', closeDonateModal);
+
+  const modalDonateBackdrop = document.getElementById('donate-modal');
+  if (modalDonateBackdrop) {
+    modalDonateBackdrop.addEventListener('click', e => {
+      if (e.target === modalDonateBackdrop) closeDonateModal();
+    });
+  }
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       closeLogModal();
       closeBiliQrModal();
+      closeDonateModal();
     }
   });
 

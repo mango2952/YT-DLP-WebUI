@@ -107,6 +107,28 @@ You can also create a release locally by running `pack_portable.bat`.
 
 ---
 
+## 📬 Feedback & Support
+
+If you encounter issues, bugs, or have feature suggestions:
+- **Email**: [torresgoal@163.com](mailto:torresgoal@163.com)
+- **GitHub Issues**: [Submit an Issue](https://github.com/mango2952/YT-DLP-WebUI/issues)
+
+> 💡 **Troubleshooting**: If a download fails, click **"📥 Export Log"** on the task card or in History, and email the `.log` file to **[torresgoal@163.com](mailto:torresgoal@163.com)**. For known issues like network timeouts or login requirements, the UI automatically displays helpful banners.
+
+---
+
+## ☕ Sponsor & Donate
+
+If **YT-DLP WebUI** saves you time and makes downloading easier, consider buying the author a coffee ☕! Your support keeps this project maintained and updated.
+
+<div align="center">
+  <img src="docs/donate.jpg" width="280" alt="WeChat Pay Donation QR Code" />
+  <br>
+  <sub><b>WeChat Pay Donation</b></sub>
+</div>
+
+---
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).

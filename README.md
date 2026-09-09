@@ -157,6 +157,28 @@ YT-DLP-WebUI/
 
 ---
 
+## 📬 反馈与支持 (Support & Contact)
+
+如果您在使用过程中遇到任何问题、报错，或有新的功能建议：
+- **邮箱联系**：[torresgoal@163.com](mailto:torresgoal@163.com)
+- **提交 Issue**：[GitHub Issues](https://github.com/mango2952/YT-DLP-WebUI/issues)
+
+> 💡 **错误排查与日志提交**：若下载报错，请在任务卡片或历史记录中点击 **「📥 导出日志」**，将导出的 `.log` 文件发送至开发者邮箱 **[torresgoal@163.com](mailto:torresgoal@163.com)**，开发者会尽快排查修复！如果是网络/地区限制/账号权限等非软件问题，界面已内置智能彩色横幅提示解决方案。
+
+---
+
+## ☕ 赞助与捐赠 (Donation)
+
+如果 **YT-DLP WebUI** 为您的日常视频下载提供了便利，欢迎请作者喝一杯咖啡 ☕ 您的每一份支持都是本项目持续迭代维护的动力！
+
+<div align="center">
+  <img src="docs/donate.jpg" width="280" alt="微信赞助二维码" />
+  <br>
+  <sub><b>微信扫码赞助</b></sub>
+</div>
+
+---
+
 ## 📄 开源许可证 (License)
 
 本项目基于 [MIT License](LICENSE) 开源。
