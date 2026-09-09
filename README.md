@@ -4,12 +4,13 @@
 
 **现代化、免安装、解压即用的便携式视频/音频下载工具**
 
-基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 与 [FFmpeg](https://ffmpeg.org/) 开发，内置极速轻量 Web 界面。
+基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 与 [FFmpeg](https://ffmpeg.org/) 开发，采用 **Google Antigravity** 智能编程助手全栈设计，内置极速轻量 Web 界面。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue.svg)](https://github.com)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
 [![yt--dlp](https://img.shields.io/badge/yt--dlp-Latest-red.svg)](https://github.com/yt-dlp/yt-dlp)
+[![Built with: Google Antigravity](https://img.shields.io/badge/Built%20with-Google%20Antigravity-4285F4.svg)](https://antigravity.google/)
 
 [English Documentation](README_EN.md) · [下载最新发布版](../../releases) · [报告问题](../../issues)
 
@@ -176,6 +177,16 @@ YT-DLP-WebUI/
   <br>
   <sub><b>微信扫码赞助</b></sub>
 </div>
+
+---
+
+## 🤖 开发背景与致谢 (Built with Antigravity)
+
+本项目完全基于 **Google DeepMind Antigravity** 智能编程助手驱动开发：
+- **便携式架构**：零配置内置嵌入式 Python、FFmpeg 与 yt-dlp，实现开箱即用。
+- **原生能力创新**：优先联动本地主流浏览器获取 Cookie，告别繁琐插件导出。
+- **UI/UX 质感设计**：现代化深色玻态拟物风格、流式下载进度与实时交互式日志查看弹窗。
+- **代码工程化**：从需求拆解、全栈代码编写、自动化构建到开源发布，均由人机结对协作高效落地。
 
 ---
 

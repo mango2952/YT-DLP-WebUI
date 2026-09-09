@@ -1223,7 +1223,7 @@ body {
   gap: 16px;
   padding: 4px 0;
 }
-.about-contact-row {
+.about-contact-row, .about-dev-row {
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -1343,7 +1343,32 @@ body {
   text-decoration: underline;
 }
 
-
+/* ── 页脚 ─────────────────────────────────────────────────────────────────── */
+#app-footer {
+  text-align: center;
+  padding: 24px 20px 32px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+#app-footer a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+#app-footer a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.footer-antigravity {
+  color: var(--accent);
+  font-weight: 600;
+}
 
 /* ── Utilities ────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }

@@ -4,12 +4,13 @@
 
 **Modern, zero-install, portable video/audio downloader WebUI**
 
-Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpeg.org/), with a sleek, responsive dark-themed UI.
+Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpeg.org/), designed and built with **Google Antigravity**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue.svg)](https://github.com)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
 [![yt--dlp](https://img.shields.io/badge/yt--dlp-Latest-red.svg)](https://github.com/yt-dlp/yt-dlp)
+[![Built with: Google Antigravity](https://img.shields.io/badge/Built%20with-Google%20Antigravity-4285F4.svg)](https://antigravity.google/)
 
 [中文说明文档](README.md) · [Download Releases](../../releases) · [Report Issue](../../issues)
 
@@ -126,6 +127,16 @@ If **YT-DLP WebUI** saves you time and makes downloading easier, consider buying
   <br>
   <sub><b>WeChat Pay Donation</b></sub>
 </div>
+
+---
+
+## 🤖 Built with Antigravity
+
+This project was fully architected, designed, and implemented using **Google DeepMind Antigravity**, an advanced agentic coding assistant:
+- **Zero-Dependency Portable Bundle**: Self-contained embedded Python + FFmpeg + yt-dlp environment.
+- **Native Browser Cookie Integration**: Direct extraction from Edge, Chrome, Firefox without browser extensions.
+- **Glassmorphic UI & Interactive Log Modal**: Built using vanilla modern HTML/CSS/JS without heavyweight framework bloat.
+- **Full-Cycle Pair Programming**: From feature requirements, troubleshooting, CI/CD to GitHub open-source release.
 
 ---
 

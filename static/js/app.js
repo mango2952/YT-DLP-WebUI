@@ -97,6 +97,8 @@ const I18N = {
     settingAbout: '关于与支持',
     contactTitle: '意见反馈与问题排查',
     contactDesc: '若遇到下载报错，请点击任务卡片上的【导出日志】，将生成的 log 文件发送至作者邮箱：',
+    aboutDevTitle: '开发工具与架构',
+    aboutDevDesc: '本产品全栈架构、功能实现与 Web 界面均基于 Google Antigravity 智能编程开发完成。',
     logModalHint: '如遇软件报错，可点击【导出】将日志文件发送至作者邮箱：',
   },
   en: {
@@ -187,6 +189,8 @@ const I18N = {
     settingAbout: 'About & Support',
     contactTitle: 'Feedback & Troubleshooting',
     contactDesc: 'If a download fails, export the log file and email to:',
+    aboutDevTitle: 'Built with Antigravity',
+    aboutDevDesc: 'This project was architected, designed and implemented using Google Antigravity.',
     logModalHint: 'If you encounter an error, export and email logs to:',
   },
 };
