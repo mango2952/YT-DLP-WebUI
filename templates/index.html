@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YT-DLP WebUI — 视频下载器</title>
+  <meta name="description" content="基于 yt-dlp 的便携式视频下载工具，支持 YouTube、Bilibili 等平台" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css?v=20260908" />
+</head>
+<body>
+  <!-- ══ 顶部导航 ══ -->
+  <header id="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">▶</span>
+        <span class="logo-text" data-i18n="appName">YT-DLP WebUI</span>
+      </div>
+      <nav class="nav-tabs" role="tablist">
+        <button class="nav-tab active" data-tab="download" role="tab" data-i18n="tabDownload">下载</button>
+        <button class="nav-tab" data-tab="history" role="tab" data-i18n="tabHistory">历史</button>
+        <button class="nav-tab" data-tab="settings" role="tab" data-i18n="tabSettings">设置</button>
+      </nav>
+      <div class="header-actions">
+        <button id="lang-toggle" class="btn-icon" title="切换语言 / Switch Language" aria-label="Toggle language">
+          <span id="lang-label">EN</span>
+        </button>
+        <div id="version-badge" class="version-badge" title="版本信息">
+          <span class="dot-online"></span>
+          <span id="version-text">yt-dlp</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══ 主内容 ══ -->
+  <main id="app-main">
+
+    <!-- ─── 下载面板 ─────────────────────────────────────────────────── -->
+    <section id="tab-download" class="tab-panel active" role="tabpanel">
+
+      <!-- URL 输入卡片 -->
+      <div class="card url-card">
+        <div class="card-header">
+          <h2 class="card-title" data-i18n="inputTitle">输入链接</h2>
+          <span class="card-sub" data-i18n="inputSub">支持 YouTube、Bilibili、Twitter 等 1000+ 平台</span>
+        </div>
+        <div class="url-input-wrap">
+          <textarea
+            id="url-input"
+            class="url-textarea"
+            data-i18n-placeholder="urlPlaceholder"
+            placeholder="粘贴视频或播放列表链接，多个链接请换行输入…"
+            rows="3"
+            spellcheck="false"
+          ></textarea>
+          <button id="btn-fetch-info" class="btn btn-secondary btn-sm fetch-btn" data-i18n="btnFetch">
+            <span class="btn-icon-inline">🔍</span>
+            <span data-i18n="btnFetch">识别</span>
+          </button>
+        </div>
+        <!-- 视频信息预览 -->
+        <div id="video-info-box" class="video-info-box hidden">
+          <img id="info-thumbnail" class="info-thumb" src="" alt="thumbnail" />
+          <div class="info-meta">
+            <div id="info-title" class="info-title"></div>
+            <div id="info-uploader" class="info-uploader"></div>
+            <div id="info-duration" class="info-duration"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 下载选项卡片 -->
+      <div class="card options-card">
+        <div class="card-header">
+          <h2 class="card-title" data-i18n="optionsTitle">下载选项</h2>
+        </div>
+        <div class="options-grid">
+          <!-- 类型 -->
+          <div class="opt-group">
+            <label class="opt-label" data-i18n="optType">类型</label>
+            <div class="seg-control" id="format-seg">
+              <button class="seg-btn active" data-value="video" data-i18n="optVideo">视频</button>
+              <button class="seg-btn" data-value="audio" data-i18n="optAudio">音频</button>
+            </div>
+          </div>
+
+          <!-- 视频质量 -->
+          <div class="opt-group" id="quality-group">
+            <label class="opt-label" data-i18n="optQuality">质量</label>
+            <select id="quality-select" class="opt-select">
+              <option value="best" data-i18n="qualBest">最佳质量</option>
+              <option value="2160">4K (2160p)</option>
+              <option value="1440">2K (1440p)</option>
+              <option value="1080">1080p</option>
+              <option value="720">720p</option>
+              <option value="480">480p</option>
+              <option value="360">360p</option>
+            </select>
+          </div>
+
+          <!-- 视频格式 -->
+          <div class="opt-group" id="video-format-group">
+            <label class="opt-label" data-i18n="optVideoFmt">视频格式</label>
+            <select id="video-format-select" class="opt-select">
+              <option value="mp4">MP4</option>
+              <option value="webm">WebM</option>
+              <option value="mkv">MKV</option>
+              <option value="mov">MOV</option>
+            </select>
+          </div>
+
+          <!-- 音频格式（仅音频模式显示） -->
+          <div class="opt-group hidden" id="audio-format-group">
+            <label class="opt-label" data-i18n="optAudioFmt">音频格式</label>
+            <select id="audio-format-select" class="opt-select">
+              <option value="mp3">MP3</option>
+              <option value="m4a">M4A</option>
+              <option value="flac">FLAC</option>
+              <option value="wav">WAV</option>
+              <option value="opus">Opus</option>
+            </select>
+          </div>
+
+          <!-- 字幕 -->
+          <div class="opt-group">
+            <label class="opt-label" data-i18n="optSubtitle">字幕</label>
+            <div class="toggle-row">
+              <label class="toggle">
+                <input type="checkbox" id="chk-subtitle" />
+                <span class="toggle-track"></span>
+              </label>
+              <span id="subtitle-langs-wrap" class="toggle-sub hidden">
+                <input type="text" id="subtitle-langs" class="opt-input-sm" value="zh-Hans,zh,en" placeholder="zh-Hans,en" />
+                <label class="toggle-mini">
+                  <input type="checkbox" id="chk-embed-sub" />
+                  <span class="toggle-track-sm"></span>
+                  <span data-i18n="optEmbedSub">嵌入</span>
+                </label>
+              </span>
+            </div>
+          </div>
+
+          <!-- 播放列表范围 -->
+          <div class="opt-group" id="playlist-group">
+            <label class="opt-label" data-i18n="optPlaylist">播放列表范围</label>
+            <div class="range-row">
+              <input type="number" id="pl-start" class="opt-input-sm" placeholder="起始" min="1" />
+              <span>—</span>
+              <input type="number" id="pl-end" class="opt-input-sm" placeholder="结束" min="1" />
+            </div>
+          </div>
+
+          <!-- Cookie 状态与快捷按钮 -->
+          <div class="opt-group" id="quick-cookie-group">
+            <label class="opt-label">Cookie 状态</label>
+            <div class="quick-cookie-row">
+              <span id="main-cookie-badge" class="cookie-status-badge unconfigured">未配置</span>
+              <button type="button" id="btn-quick-bili-qr" class="btn btn-secondary btn-sm" title="手机扫码获取 B站 Cookie">
+                📱 扫码获取 B站 Cookie
+              </button>
+              <button type="button" id="btn-quick-paste-clip" class="btn btn-ghost btn-sm" title="读取剪贴板中的 Cookie 或 SESSDATA">
+                📋 读剪贴板
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下载按钮 -->
+        <div class="download-action">
+          <button id="btn-download" class="btn btn-primary btn-lg" data-i18n="btnDownload">
+            <span class="btn-icon-inline">⬇</span>
+            <span data-i18n="btnDownload">开始下载</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 任务列表 -->
+      <div id="tasks-container"></div>
+
+    </section>
+
+    <!-- ─── 历史面板 ────────────────────────────────────────────────── -->
+    <section id="tab-history" class="tab-panel" role="tabpanel">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title" data-i18n="historyTitle">下载历史</h2>
+          <div class="card-actions" style="display: flex; gap: 8px;">
+            <button id="btn-refresh-history" class="btn btn-ghost btn-sm" data-i18n="btnRefresh">🔄 刷新</button>
+            <button id="btn-clear-history" class="btn btn-danger btn-sm" data-i18n="btnClearHistory">清除历史</button>
+          </div>
+        </div>
+        <div id="history-list" class="history-list">
+          <div class="empty-state" data-i18n="historyEmpty">暂无下载记录</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── 设置面板 ────────────────────────────────────────────────── -->
+    <section id="tab-settings" class="tab-panel" role="tabpanel">
+      <div class="settings-grid">
+
+        <!-- 常规设置 -->
+        <div class="card settings-card">
+          <div class="card-header">
+            <h2 class="card-title" data-i18n="settingGeneral">常规</h2>
+          </div>
+          <div class="setting-rows">
+            <div class="setting-row">
+              <label class="setting-label" data-i18n="settingPath">下载路径</label>
+              <div class="setting-value path-row">
+                <input type="text" id="cfg-path" class="opt-input" placeholder="downloads/" />
+                <button id="btn-open-folder" class="btn btn-ghost btn-sm" title="打开文件夹" data-i18n="btnOpenFolder">📂 打开</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label class="setting-label" data-i18n="settingConcurrent">并发下载数</label>
+              <div class="setting-value">
+                <input type="number" id="cfg-concurrent" class="opt-input-sm" min="1" max="10" value="3" />
+              </div>
+            </div>
+            <div class="setting-row">
+              <label class="setting-label" data-i18n="settingSpeed">速度限制</label>
+              <div class="setting-value">
+                <input type="text" id="cfg-speed" class="opt-input-sm" placeholder="例: 2M, 500K" />
+                <span class="hint" data-i18n="settingSpeedHint">留空不限速</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 网络设置 -->
+        <div class="card settings-card">
+          <div class="card-header">
+            <h2 class="card-title" data-i18n="settingNetwork">网络</h2>
+          </div>
+          <div class="setting-rows">
+            <div class="setting-row">
+              <label class="setting-label" data-i18n="settingProxy">代理</label>
+              <div class="setting-value">
+                <input type="text" id="cfg-proxy" class="opt-input" placeholder="http://127.0.0.1:7890 或 socks5://..." />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cookie -->
+        <div class="card settings-card">
+          <div class="card-header">
+            <h2 class="card-title">Cookie 设置</h2>
+          </div>
+          <div class="setting-rows">
+            <div class="setting-row">
+              <label class="setting-label" data-i18n="cookieMode">Cookie 来源</label>
+              <div class="setting-value">
+                <select id="cfg-cookie-mode" class="opt-select">
+                  <option value="file" data-i18n="cookieModeFile">📁 Cookie 文件 / 扫码 / 粘贴 (推荐)</option>
+                  <option value="none" data-i18n="cookieModeNone">🚫 不使用 Cookie</option>
+                  <option value="browser" data-i18n="cookieModeBrowser">🌐 浏览器提取 (Windows Chrome/Edge 因加密限制通常报错，推荐 Firefox)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 浏览器选择 -->
+            <div class="setting-row hidden" id="row-cookie-browser">
+              <label class="setting-label" data-i18n="cookieBrowserSelect">选择浏览器</label>
+              <div class="setting-value" style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+                <select id="cfg-browser-name" class="opt-select" style="min-width: 220px;">
+                  <option value="chrome">Google Chrome (谷歌浏览器)</option>
+                  <option value="edge">Microsoft Edge</option>
+                  <option value="firefox">Mozilla Firefox (推荐，不受 Windows DPAPI 限制)</option>
+                  <option value="brave">Brave</option>
+                  <option value="opera">Opera</option>
+                  <option value="vivaldi">Vivaldi</option>
+                </select>
+                <div class="hint" data-i18n="cookieBrowserHint">提示：Windows 上的 Chrome/Edge 127+ 启用了 App-Bound 加密且有进程锁，建议使用上方“扫码 / 粘贴”或 Firefox。</div>
+              </div>
+            </div>
+
+            <!-- Cookie 文件与扫码绑定 -->
+            <div class="setting-row" id="row-cookie-file">
+              <label class="setting-label">Cookie 管理</label>
+              <div class="setting-value" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                <div class="cookie-status-bar">
+                  <div class="cookie-status-info">
+                    <span id="cfg-cookie-badge" class="cookie-status-badge unconfigured">未配置</span>
+                    <span id="cfg-cookie-details" class="cookie-status-details">尚未添加 Cookie</span>
+                  </div>
+                  <div class="cookie-actions">
+                    <button type="button" id="btn-cfg-bili-qr" class="btn btn-primary btn-sm">📱 扫码获取 B站 Cookie</button>
+                    <button type="button" id="btn-cfg-paste-clip" class="btn btn-secondary btn-sm">📋 读取剪贴板</button>
+                    <label class="btn btn-secondary btn-sm cookie-upload-btn" data-i18n="btnUploadCookie">
+                      📤 上传 txt
+                      <input type="file" id="cookie-file-input" accept=".txt" style="display:none" />
+                    </label>
+                    <button type="button" id="btn-clear-cookie" class="btn btn-ghost btn-sm text-danger" data-i18n="btnClearCookie">清空</button>
+                  </div>
+                </div>
+
+                <div class="cookie-paste-box">
+                  <textarea id="cfg-cookie-text" class="opt-textarea" rows="2" placeholder="也可直接粘贴：B站 SESSDATA、浏览器控制台复制的 Cookie 请求头、或 Netscape 文本…"></textarea>
+                  <div class="cookie-paste-actions">
+                    <button type="button" id="btn-save-cookie-text" class="btn btn-secondary btn-sm">💾 保存粘贴的内容</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 工具维护 -->
+        <div class="card settings-card">
+          <div class="card-header">
+            <h2 class="card-title" data-i18n="settingMaintain">工具维护</h2>
+          </div>
+          <div class="setting-rows">
+            <div class="setting-row">
+              <label class="setting-label">yt-dlp</label>
+              <div class="setting-value">
+                <button id="btn-update-ytdlp" class="btn btn-secondary" data-i18n="btnUpdateYtdlp">
+                  <span class="btn-icon-inline">🔄</span>
+                  <span data-i18n="btnUpdateYtdlp">一键更新 yt-dlp</span>
+                </button>
+                <span id="update-status" class="update-status"></span>
+              </div>
+            </div>
+            <div id="update-output" class="update-output hidden"></div>
+          </div>
+        </div>
+
+        <!-- 日志管理 -->
+        <div class="card settings-card">
+          <div class="card-header">
+            <h2 class="card-title" data-i18n="settingLogs">日志管理</h2>
+            <button id="btn-clear-logs" class="btn btn-danger btn-sm" data-i18n="btnClearLogs">清空日志</button>
+          </div>
+          <div id="log-file-list" class="log-file-list">
+            <div class="empty-state" data-i18n="logsEmpty">暂无日志文件</div>
+          </div>
+          <div class="hint" data-i18n="logsHint">下载出错时，将日志文件发送给开发者以便排查问题</div>
+        </div>
+
+        <!-- 保存按钮 -->
+        <div class="settings-save-row">
+          <button id="btn-save-settings" class="btn btn-primary" data-i18n="btnSave">💾 保存设置</button>
+          <span id="save-status" class="save-status"></span>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ══ Toast 通知 ══ -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ══ 任务卡片模板 ══ -->
+  <template id="task-card-tpl">
+    <div class="task-card" data-task-id="">
+      <div class="task-card-header">
+        <div class="task-info">
+          <span class="task-badge"></span>
+          <span class="task-title"></span>
+        </div>
+        <div class="task-actions">
+          <button class="task-open-file-btn btn btn-primary btn-xs hidden" data-i18n="btnOpenFile">🎬 打开文件</button>
+          <button class="task-open-folder-btn btn btn-secondary btn-xs hidden" data-i18n="btnOpenFolder">📂 所在文件夹</button>
+          <button class="task-view-log-btn btn btn-ghost btn-xs hidden" data-i18n="btnViewLog">📋 查看日志</button>
+          <button class="task-export-btn btn btn-ghost btn-xs hidden" data-i18n="btnExportLog">📥 导出日志</button>
+          <button class="task-stop-btn btn btn-ghost btn-xs" data-i18n="btnStop">停止</button>
+        </div>
+      </div>
+      <!-- 已知错误提示横幅 -->
+      <div class="known-error-banner hidden">
+        <span class="known-error-icon"></span>
+        <div class="known-error-body">
+          <div class="known-error-msg"></div>
+          <div class="known-error-hint" data-i18n="knownErrHint">这是已知的非软件问题，无需导出日志</div>
+        </div>
+      </div>
+      <div class="task-progress-wrap">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill"></div>
+        </div>
+        <div class="task-stats">
+          <span class="stat-pct">0%</span>
+          <span class="stat-speed"></span>
+          <span class="stat-eta"></span>
+          <span class="stat-total"></span>
+        </div>
+      </div>
+      <div class="task-log"></div>
+    </div>
+  </template>
+
+  <!-- ══ 历史行模板 ══ -->
+  <template id="history-row-tpl">
+    <div class="history-card" data-history-id="">
+      <div class="history-main-info">
+        <span class="hist-status-dot"></span>
+        <div class="hist-texts">
+          <div class="hist-title-line">
+            <span class="hist-title"></span>
+            <span class="hist-badge-fmt"></span>
+            <span class="hist-size"></span>
+          </div>
+          <div class="hist-url-line">
+            <span class="hist-url"></span>
+            <span class="hist-time"></span>
+          </div>
+        </div>
+      </div>
+      <div class="hist-actions">
+        <button class="btn btn-primary btn-xs hist-btn-open-file hidden" data-i18n="btnOpenFile">🎬 打开文件</button>
+        <button class="btn btn-secondary btn-xs hist-btn-open-folder" data-i18n="btnOpenFolder">📂 所在文件夹</button>
+        <button class="btn btn-ghost btn-xs hist-btn-view-log" data-i18n="btnViewLog">📋 查看日志</button>
+        <button class="btn btn-ghost btn-xs hist-btn-delete text-danger" title="删除记录">🗑️</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- ══ 日志查看模态框 ══ -->
+  <div id="log-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">📋</span>
+          <span id="log-modal-title" class="modal-title">任务日志</span>
+        </div>
+        <div class="modal-actions">
+          <button id="btn-copy-modal-log" class="btn btn-ghost btn-sm" data-i18n="btnCopy">📋 复制</button>
+          <button id="btn-download-modal-log" class="btn btn-ghost btn-sm" data-i18n="btnDownloadLog">📥 导出</button>
+          <button id="btn-close-modal-log" class="btn btn-ghost btn-sm modal-close" title="关闭">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <pre id="log-modal-content" class="log-code"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Bilibili 扫码登录模态框 ══ -->
+  <div id="bili-qr-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-dialog bili-qr-dialog">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">📱</span>
+          <span class="modal-title">B站一键扫码获取 Cookie</span>
+        </div>
+        <button id="btn-close-bili-qr" class="btn btn-ghost btn-sm modal-close" title="关闭">✕</button>
+      </div>
+      <div class="modal-body bili-qr-modal-body">
+        <div class="bili-qr-card">
+          <div class="bili-qr-wrapper">
+            <div id="bili-qr-canvas"></div>
+            <div id="bili-qr-overlay" class="bili-qr-overlay hidden">
+              <span id="bili-qr-overlay-text">已过期</span>
+              <button id="btn-refresh-bili-qr" class="btn btn-primary btn-sm">点击刷新</button>
+            </div>
+          </div>
+          <div class="bili-qr-tips">
+            <div id="bili-qr-msg" class="bili-qr-status-text">正在生成二维码…</div>
+            <div class="bili-qr-subtext">请打开手机哔哩哔哩客户端扫一扫并确认登录。<br>无需任何浏览器插件，自动写入 cookies.txt，用于下载 1080P 60帧/4K 高清视频。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/qrcode.min.js"></script>
+  <script src="/static/js/app.js?v=20260908"></script>
+</body>
+</html>

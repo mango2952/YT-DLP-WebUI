@@ -1,0 +1,14 @@
+{
+  "download_path": "downloads",
+  "proxy": "",
+  "max_concurrent": 3,
+  "speed_limit": "",
+  "language": "zh",
+  "port": 8080,
+  "cookie_mode": "browser",
+  "browser_name": "edge",
+  "cookie_file": "",
+  "subtitle_langs": "zh-Hans,zh,en",
+  "embed_subtitles": false,
+  "write_subtitles": true
+}
