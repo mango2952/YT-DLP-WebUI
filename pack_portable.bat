@@ -55,8 +55,13 @@ if exist "bin\ffprobe.exe" (
     copy "bin\ffprobe.exe" "%STAGE_DIR%\bin\" > nul
 )
 
-echo [4/4] Compressing into %ZIP_NAME%...
-powershell -NoProfile -Command "Compress-Archive -Path 'dist_portable_staging\*' -DestinationPath '%ZIP_NAME%' -Force"
+if exist "python\python.exe" (
+    echo [4/4] Compressing into %ZIP_NAME% via Python...
+    python\python.exe -c "import shutil; shutil.make_archive('YT-DLP-WebUI-Portable-Windows-x64', 'zip', 'dist_portable_staging')"
+) else (
+    echo [4/4] Compressing into %ZIP_NAME% via PowerShell...
+    powershell -NoProfile -Command "Compress-Archive -Path 'dist_portable_staging\*' -DestinationPath '%ZIP_NAME%' -Force"
+)
 
 rd /s /q "dist_portable_staging"
 
