@@ -1217,23 +1217,29 @@ def api_bilibili_poll():
 # ── 打开文件 ──────────────────────────────────────────────────────────────────
 @app.route("/api/open-file", methods=["POST"])
 def api_open_file():
-    data = request.get_json(force=True) or {}
+    data = request.get_json(silent=True) or {}
     target = data.get("file") or data.get("path") or data.get("file_path")
     if not target:
         return jsonify({"ok": False, "error": "未提供文件路径"}), 400
     p = Path(target)
     if not p.is_absolute():
-        p = BASE_DIR / p
+        p = (BASE_DIR / p).resolve()
+    else:
+        p = p.resolve()
     if not (p.exists() and p.is_file()):
         return jsonify({"ok": False, "error": f"文件不存在: {p.name}"}), 404
     try:
+        print(f"[API] 打开文件: {p}", flush=True)
         if sys.platform == "win32":
-            os.startfile(str(p))
+            try:
+                os.startfile(str(p))
+            except Exception:
+                subprocess.Popen(["cmd.exe", "/c", "start", "", str(p)], shell=True)
         elif sys.platform == "darwin":
             subprocess.Popen(["open", str(p)])
         else:
             subprocess.Popen(["xdg-open", str(p)])
-        return jsonify({"ok": True})
+        return jsonify({"ok": True, "path": str(p)})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -1269,8 +1275,12 @@ def api_open_folder():
 
     try:
         folder.mkdir(parents=True, exist_ok=True)
+        print(f"[API] 打开所在文件夹: {folder}", flush=True)
         if sys.platform == "win32":
-            os.startfile(str(folder))
+            try:
+                os.startfile(str(folder))
+            except Exception:
+                subprocess.Popen(["explorer.exe", str(folder)])
         elif sys.platform == "darwin":
             subprocess.Popen(["open", str(folder)])
         else:

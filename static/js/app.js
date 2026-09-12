@@ -582,12 +582,14 @@ async function openFile(filePath) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ file: filePath }),
     });
-    const data = await res.json();
-    if (!data.ok) {
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) {
+      showToast(`正在打开文件: ${data.path || filePath}`, 'info');
+    } else {
       showToast(data.error || t('toastFileNotFound'), 'error');
     }
   } catch (e) {
-    showToast(e.message, 'error');
+    showToast(`无法连接后端服务，请确认 start.bat 是否正在运行: ${e.message}`, 'error');
   }
 }
 
@@ -599,7 +601,9 @@ async function openFolder(target) {
       body: JSON.stringify({ file: target }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.ok === false) {
+    if (res.ok && data.ok) {
+      showToast(`已在资源管理器中打开所在文件夹: ${data.path}`, 'success');
+    } else {
       showToast(data.error || '无法打开文件夹', 'error');
     }
   } catch (e) {
