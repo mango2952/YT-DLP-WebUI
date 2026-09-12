@@ -593,13 +593,17 @@ async function openFile(filePath) {
 
 async function openFolder(target) {
   try {
-    await fetch('/api/open-folder', {
+    const res = await fetch('/api/open-folder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ file: target }),
     });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.ok === false) {
+      showToast(data.error || '无法打开文件夹', 'error');
+    }
   } catch (e) {
-    showToast(e.message, 'error');
+    showToast(`无法连接后端服务，请确认 start.bat 是否正在运行: ${e.message}`, 'error');
   }
 }
 

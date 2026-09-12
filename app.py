@@ -1238,42 +1238,10 @@ def api_open_file():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-def _win_open_and_select(path_str):
-    """Windows 原生 Shell API：打开资源管理器并高亮选中目标文件，杜绝 explorer /select 因逗号、空格或特殊字符引发回退打开'文档'目录的问题"""
-    try:
-        import ctypes
-        from ctypes import wintypes
-
-        shell32 = ctypes.windll.shell32
-        ole32 = ctypes.windll.ole32
-
-        ole32.CoInitialize(None)
-
-        ILCreateFromPathW = shell32.ILCreateFromPathW
-        ILCreateFromPathW.restype = wintypes.LPVOID
-        ILCreateFromPathW.argtypes = [wintypes.LPCWSTR]
-
-        ILFree = shell32.ILFree
-        ILFree.argtypes = [wintypes.LPVOID]
-
-        SHOpenFolderAndSelectItems = shell32.SHOpenFolderAndSelectItems
-        SHOpenFolderAndSelectItems.restype = ctypes.c_long
-        SHOpenFolderAndSelectItems.argtypes = [wintypes.LPVOID, ctypes.c_uint, wintypes.LPVOID, ctypes.c_ulong]
-
-        pidl = ILCreateFromPathW(path_str)
-        if pidl:
-            res = SHOpenFolderAndSelectItems(pidl, 0, None, 0)
-            ILFree(pidl)
-            return res == 0
-        return False
-    except Exception:
-        return False
-
-
 # ── 打开文件夹 ────────────────────────────────────────────────────────────────
 @app.route("/api/open-folder", methods=["POST"])
 def api_open_folder():
-    data = request.get_json(force=True) or {}
+    data = request.get_json(silent=True) or {}
     target = data.get("file") or data.get("path") or data.get("file_path")
     cfg = load_config()
     default_download = Path(cfg.get("download_path") or str(DOWNLOADS_DIR))
@@ -1281,7 +1249,7 @@ def api_open_folder():
         default_download = (BASE_DIR / default_download).resolve()
 
     if not target:
-        p = default_download
+        folder = default_download
     else:
         p = Path(target)
         if not p.is_absolute():
@@ -1289,39 +1257,25 @@ def api_open_folder():
         else:
             p = p.resolve()
 
-    try:
-        if sys.platform == "win32":
-            # 1. 如果是具体文件且存在，优先尝试原生 API 高亮选中它
-            if p.is_file() and p.exists():
-                if _win_open_and_select(str(p)):
-                    return jsonify({"ok": True})
-                # 若选中失败，直接打开该文件所在文件夹
-                if p.parent.exists() and p.parent.is_dir():
-                    os.startfile(str(p.parent))
-                    return jsonify({"ok": True})
-
-            # 2. 如果是目录且存在，直接打开该目录
-            if p.is_dir() and p.exists():
-                os.startfile(str(p))
-                return jsonify({"ok": True})
-
-            # 3. 如果路径的父目录存在（例如文件被移动或重命名），直接打开父目录
-            if p.parent.exists() and p.parent.is_dir():
-                os.startfile(str(p.parent))
-                return jsonify({"ok": True})
-
-            # 4. 兜底方案：直接打开配置的实际下载存储目录
-            default_download.mkdir(parents=True, exist_ok=True)
-            os.startfile(str(default_download))
-            return jsonify({"ok": True})
-
-        elif sys.platform == "darwin":
-            parent = p if p.is_dir() else p.parent
-            subprocess.Popen(["open", str(parent)])
+        # 如果传入的是具体视频文件，所在文件夹即为其父目录
+        if p.is_file():
+            folder = p.parent
+        elif p.is_dir():
+            folder = p
+        elif p.parent.exists() and p.parent.is_dir():
+            folder = p.parent
         else:
-            parent = p if p.is_dir() else p.parent
-            subprocess.Popen(["xdg-open", str(parent)])
-        return jsonify({"ok": True})
+            folder = default_download
+
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        if sys.platform == "win32":
+            os.startfile(str(folder))
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(folder)])
+        else:
+            subprocess.Popen(["xdg-open", str(folder)])
+        return jsonify({"ok": True, "path": str(folder)})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
