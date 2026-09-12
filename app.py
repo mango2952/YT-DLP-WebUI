@@ -1254,6 +1254,7 @@ def api_open_folder():
     if not default_download.is_absolute():
         default_download = (BASE_DIR / default_download).resolve()
 
+    file_to_select = None
     if not target:
         folder = default_download
     else:
@@ -1263,9 +1264,9 @@ def api_open_folder():
         else:
             p = p.resolve()
 
-        # 如果传入的是具体视频文件，所在文件夹即为其父目录
         if p.is_file():
             folder = p.parent
+            file_to_select = p
         elif p.is_dir():
             folder = p
         elif p.parent.exists() and p.parent.is_dir():
@@ -1275,12 +1276,14 @@ def api_open_folder():
 
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        print(f"[API] 打开所在文件夹: {folder}", flush=True)
+        print(f"[API] 打开所在文件夹: folder={folder}, select={file_to_select}", flush=True)
         if sys.platform == "win32":
-            try:
-                os.startfile(str(folder))
-            except Exception:
-                subprocess.Popen(["explorer.exe", str(folder)])
+            # 如果是已下载的具体文件，且文件名不包含逗号与双引号（避免 Windows Explorer /select 逗号解析 Bug 误开“文档”），使用 /select 高亮选中该文件
+            if file_to_select and file_to_select.exists() and "," not in file_to_select.name and '"' not in str(file_to_select):
+                subprocess.Popen(f'explorer.exe /select,"{file_to_select}"')
+            else:
+                # 否则直接用 explorer.exe 弹出所在文件夹（100% 可靠弹出，绝不误开“文档”）
+                subprocess.Popen(f'explorer.exe "{folder}"')
         elif sys.platform == "darwin":
             subprocess.Popen(["open", str(folder)])
         else:
