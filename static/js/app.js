@@ -1157,7 +1157,11 @@ async function loadVersion() {
   try {
     const res = await fetch('/api/version');
     const data = await res.json();
-    document.getElementById('version-text').textContent = `yt-dlp ${data.yt_dlp}`;
+    const badge = document.getElementById('version-badge');
+    if (badge) {
+      badge.title = `YT-DLP WebUI v${data.app || '1.0.2'} | yt-dlp ${data.yt_dlp} | ffmpeg ${data.ffmpeg}`;
+    }
+    document.getElementById('version-text').textContent = `v${data.app || '1.0.2'}`;
   } catch (e) { /* ignore */ }
 }
 

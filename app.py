@@ -1302,9 +1302,13 @@ def api_version():
             capture_output=True, text=True, encoding="utf-8", timeout=5,
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
-        return jsonify({"yt_dlp": result.stdout.strip(), "ffmpeg": _ffmpeg_version()})
+        return jsonify({
+            "app": "1.0.2",
+            "yt_dlp": result.stdout.strip(),
+            "ffmpeg": _ffmpeg_version(),
+        })
     except Exception as e:
-        return jsonify({"yt_dlp": "未知", "ffmpeg": "未知", "error": str(e)})
+        return jsonify({"app": "1.0.2", "yt_dlp": "未知", "ffmpeg": "未知", "error": str(e)})
 
 
 def _ffmpeg_version() -> str:
