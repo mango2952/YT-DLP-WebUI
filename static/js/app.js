@@ -19,14 +19,18 @@ const I18N = {
     urlPlaceholder: '粘贴视频或播放列表链接，多个链接请换行输入…',
     btnFetch: '识别',
     optionsTitle: '下载选项',
+    optContent: '下载内容',
+    optThumbnail: '封面',
     optType: '类型',
     optVideo: '视频',
     optAudio: '仅音频',
+    optAudioOnly: '音频',
     optQuality: '视频质量',
     qualBest: '最佳质量',
     optVideoFmt: '视频格式',
     optAudioFmt: '音频格式',
     optSubtitle: '字幕',
+    optSubtitleLang: '字幕语言',
     optEmbedSub: '嵌入视频',
     optPlaylist: '播放列表范围',
     btnDownload: '开始下载',
@@ -69,6 +73,7 @@ const I18N = {
     btnStop: '停止',
     toastDownloadStarted: '下载任务已启动',
     toastSaved: '设置已保存',
+    toastNoContentSelected: '请至少选择一项下载内容（封面/视频/音频/字幕）',
     toastHistoryCleared: '历史记录已清除',
     toastCookieUploaded: 'Cookie 文件已上传',
     toastCookieCleared: 'Cookie 已清除',
@@ -111,14 +116,18 @@ const I18N = {
     urlPlaceholder: 'Paste video or playlist URL(s), one per line…',
     btnFetch: 'Fetch Info',
     optionsTitle: 'Download Options',
+    optContent: 'Download Content',
+    optThumbnail: 'Cover / Thumbnail',
     optType: 'Type',
     optVideo: 'Video',
     optAudio: 'Audio Only',
+    optAudioOnly: 'Audio',
     optQuality: 'Quality',
     qualBest: 'Best Quality',
     optVideoFmt: 'Video Format',
     optAudioFmt: 'Audio Format',
     optSubtitle: 'Subtitles',
+    optSubtitleLang: 'Subtitle Language',
     optEmbedSub: 'Embed',
     optPlaylist: 'Playlist Range',
     btnDownload: 'Start Download',
@@ -161,6 +170,7 @@ const I18N = {
     btnStop: 'Stop',
     toastDownloadStarted: 'Download task started',
     toastSaved: 'Settings saved',
+    toastNoContentSelected: 'Please select at least one item to download (Thumbnail/Video/Audio/Subtitles)',
     toastHistoryCleared: 'History cleared',
     toastCookieUploaded: 'Cookie file uploaded',
     toastCookieCleared: 'Cookie cleared',
@@ -265,26 +275,36 @@ function initTabs() {
 // 格式/类型切换
 // ══════════════════════════════════════════════════════════════════════════════
 
-let selectedFormat = 'video';
+function updateContentToggleStates() {
+  const chkThumb = document.getElementById('chk-thumbnail');
+  const chkVideo = document.getElementById('chk-video');
+  const chkAudio = document.getElementById('chk-audio');
+  const chkSub   = document.getElementById('chk-subtitle');
+
+  if (chkThumb) document.getElementById('ct-thumbnail')?.classList.toggle('active', chkThumb.checked);
+  if (chkVideo) {
+    document.getElementById('ct-video')?.classList.toggle('active', chkVideo.checked);
+    document.getElementById('quality-group')?.classList.toggle('hidden', !chkVideo.checked);
+    document.getElementById('video-format-group')?.classList.toggle('hidden', !chkVideo.checked);
+  }
+  if (chkAudio) {
+    document.getElementById('ct-audio')?.classList.toggle('active', chkAudio.checked);
+    document.getElementById('audio-format-group')?.classList.toggle('hidden', !chkAudio.checked);
+  }
+  if (chkSub) {
+    document.getElementById('ct-subtitle')?.classList.toggle('active', chkSub.checked);
+    document.getElementById('subtitle-options-group')?.classList.toggle('hidden', !chkSub.checked);
+  }
+}
 
 function initFormatToggle() {
-  document.querySelectorAll('#format-seg .seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#format-seg .seg-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      selectedFormat = btn.dataset.value;
-      const isAudio = selectedFormat === 'audio';
-      document.getElementById('quality-group').classList.toggle('hidden', isAudio);
-      document.getElementById('video-format-group').classList.toggle('hidden', isAudio);
-      document.getElementById('audio-format-group').classList.toggle('hidden', !isAudio);
-    });
+  ['chk-thumbnail', 'chk-video', 'chk-audio', 'chk-subtitle'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', updateContentToggleStates);
+    }
   });
-
-  // Subtitle toggle
-  const chkSub = document.getElementById('chk-subtitle');
-  chkSub.addEventListener('change', () => {
-    document.getElementById('subtitle-langs-wrap').classList.toggle('hidden', !chkSub.checked);
-  });
+  updateContentToggleStates();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -361,20 +381,32 @@ async function startDownload() {
   const urlsRaw = document.getElementById('url-input').value.trim();
   if (!urlsRaw) { showToast(t('toastUrlEmpty'), 'error'); return; }
 
+  const dlThumbnail = document.getElementById('chk-thumbnail')?.checked || false;
+  const dlVideo = document.getElementById('chk-video')?.checked || false;
+  const dlAudio = document.getElementById('chk-audio')?.checked || false;
+  const dlSubtitle = document.getElementById('chk-subtitle')?.checked || false;
+
+  if (!dlThumbnail && !dlVideo && !dlAudio && !dlSubtitle) {
+    showToast(t('toastNoContentSelected'), 'error');
+    return;
+  }
+
   const cookieModeSelect = document.getElementById('cfg-cookie-mode');
   const browserNameSelect = document.getElementById('cfg-browser-name');
 
   const payload = {
     urls: urlsRaw,
-    format:  selectedFormat,
-    quality: document.getElementById('quality-select').value,
-    video_format: document.getElementById('video-format-select').value,
-    audio_format: document.getElementById('audio-format-select').value,
-    download_subtitles: document.getElementById('chk-subtitle').checked,
-    subtitle_langs: document.getElementById('subtitle-langs').value,
-    embed_subtitles: document.getElementById('chk-embed-sub').checked,
-    playlist_start: document.getElementById('pl-start').value,
-    playlist_end:   document.getElementById('pl-end').value,
+    download_thumbnail: dlThumbnail,
+    download_video: dlVideo,
+    download_audio: dlAudio,
+    download_subtitles: dlSubtitle,
+    quality: document.getElementById('quality-select')?.value || 'best',
+    video_format: document.getElementById('video-format-select')?.value || 'mp4',
+    audio_format: document.getElementById('audio-format-select')?.value || 'mp3',
+    subtitle_langs: document.getElementById('subtitle-langs')?.value || 'zh-Hans,zh,en',
+    embed_subtitles: document.getElementById('chk-embed-sub')?.checked || false,
+    playlist_start: document.getElementById('pl-start')?.value || '',
+    playlist_end:   document.getElementById('pl-end')?.value || '',
     cookie_mode: cookieModeSelect ? cookieModeSelect.value : 'file',
     browser_name: browserNameSelect ? browserNameSelect.value : 'chrome',
   };
@@ -1159,9 +1191,9 @@ async function loadVersion() {
     const data = await res.json();
     const badge = document.getElementById('version-badge');
     if (badge) {
-      badge.title = `YT-DLP WebUI v${data.app || '1.0.2'} | yt-dlp ${data.yt_dlp} | ffmpeg ${data.ffmpeg}`;
+      badge.title = `YT-DLP WebUI v${data.app || '1.0.3'} | yt-dlp ${data.yt_dlp} | ffmpeg ${data.ffmpeg}`;
     }
-    document.getElementById('version-text').textContent = `v${data.app || '1.0.2'}`;
+    document.getElementById('version-text').textContent = `v${data.app || '1.0.3'}`;
   } catch (e) { /* ignore */ }
 }
 

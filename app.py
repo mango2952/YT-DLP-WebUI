@@ -368,36 +368,60 @@ def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
         browser_name = opts.get("browser_name") or cfg.get("browser_name", "chrome")
         cmd += ["--cookies-from-browser", browser_name]
 
-    # 格式选择
-    fmt = opts.get("format", "video")
-    quality = opts.get("quality", "best")
+    dl_thumb = opts.get("download_thumbnail", False)
+    dl_video = opts.get("download_video", True)
+    dl_audio = opts.get("download_audio", False)
+    dl_subs  = opts.get("download_subtitles", False)
 
-    if fmt == "audio":
-        audio_fmt = opts.get("audio_format", "mp3")
+    # 封面 / 缩略图
+    if dl_thumb:
+        cmd += ["--write-thumbnail", "--convert-thumbnails", "jpg"]
+
+    # 格式选择（视频 / 音频）
+    quality = opts.get("quality", "best")
+    video_fmt = opts.get("video_format", "mp4")
+    audio_fmt = opts.get("audio_format", "mp3")
+
+    if quality == "best":
+        fmt_str = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
+    elif quality == "audio_only":
+        fmt_str = "bestaudio/best"
+    else:
+        fmt_str = f"bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"
+
+    if dl_video and dl_audio:
+        # 同时下载视频并提取独立音频（-k 保留合并后的视频）
+        cmd += [
+            "-f", fmt_str,
+            "--merge-output-format", video_fmt,
+            "-x",
+            "--audio-format", audio_fmt,
+            "--audio-quality", "0",
+            "-k",
+        ]
+    elif dl_video:
+        # 仅下载视频
+        cmd += ["-f", fmt_str, "--merge-output-format", video_fmt]
+    elif dl_audio:
+        # 仅下载音频
         cmd += [
             "-x",
             "--audio-format", audio_fmt,
             "--audio-quality", "0",
         ]
     else:
-        video_fmt = opts.get("video_format", "mp4")
-        if quality == "best":
-            fmt_str = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
-        elif quality == "audio_only":
-            fmt_str = "bestaudio/best"
-        else:
-            fmt_str = f"bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"
-        cmd += ["-f", fmt_str, "--merge-output-format", video_fmt]
+        # 既不下载视频也不下载音频（如只下载封面或字幕）
+        cmd += ["--skip-download"]
 
     # 字幕
-    if opts.get("download_subtitles"):
+    if dl_subs:
         sub_langs = opts.get("subtitle_langs") or cfg.get("subtitle_langs", "zh-Hans,zh,en")
         cmd += [
             "--write-subs",
             "--sub-langs", sub_langs,
             "--convert-subs", "srt",
         ]
-        if opts.get("embed_subtitles") or cfg.get("embed_subtitles"):
+        if dl_video and (opts.get("embed_subtitles") or cfg.get("embed_subtitles")):
             cmd += ["--embed-subs"]
 
     # 播放列表范围
@@ -408,8 +432,8 @@ def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
     if playlist_end:
         cmd += ["--playlist-end", str(playlist_end)]
 
-    # 输出模板
-    output_tmpl = os.path.join(download_path, "%(title)s.%(ext)s")
+    # 输出模板（每个视频独立建立同名文件夹存放）
+    output_tmpl = os.path.join(download_path, "%(title)s", "%(title)s.%(ext)s")
     cmd += ["-o", output_tmpl]
 
     cmd.append(url)
@@ -538,6 +562,17 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                 m_audio = re.search(r'\[ExtractAudio\] Destination:\s*(.+)', raw_line)
                 if m_audio:
                     captured_files.append(m_audio.group(1).strip())
+                m_thumb = re.search(r'Writing video thumbnail \d+ to:\s*(.+)', raw_line)
+                if m_thumb:
+                    tpath = m_thumb.group(1).strip()
+                    captured_files.append(tpath)
+                    captured_files.append(str(Path(tpath).with_suffix(".jpg")))
+                m_thumb_conv = re.search(r'\[ThumbnailsConvertor\] Converting thumbnail "([^"]+)" to (\w+)', raw_line)
+                if m_thumb_conv:
+                    captured_files.append(str(Path(m_thumb_conv.group(1)).with_suffix(f".{m_thumb_conv.group(2)}")))
+                m_sub = re.search(r'Writing video subtitles to:\s*(.+)', raw_line)
+                if m_sub:
+                    captured_files.append(m_sub.group(1).strip())
                 m_already = re.search(r'\[download\]\s*(.+?)\s+has already been downloaded', raw_line)
                 if m_already:
                     captured_files.append(m_already.group(1).strip())
@@ -598,6 +633,17 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                     m_audio = re.search(r'\[ExtractAudio\] Destination:\s*(.+)', raw_line)
                     if m_audio:
                         captured_files.append(m_audio.group(1).strip())
+                    m_thumb = re.search(r'Writing video thumbnail \d+ to:\s*(.+)', raw_line)
+                    if m_thumb:
+                        tpath = m_thumb.group(1).strip()
+                        captured_files.append(tpath)
+                        captured_files.append(str(Path(tpath).with_suffix(".jpg")))
+                    m_thumb_conv = re.search(r'\[ThumbnailsConvertor\] Converting thumbnail "([^"]+)" to (\w+)', raw_line)
+                    if m_thumb_conv:
+                        captured_files.append(str(Path(m_thumb_conv.group(1)).with_suffix(f".{m_thumb_conv.group(2)}")))
+                    m_sub = re.search(r'Writing video subtitles to:\s*(.+)', raw_line)
+                    if m_sub:
+                        captured_files.append(m_sub.group(1).strip())
                     m_already = re.search(r'\[download\]\s*(.+?)\s+has already been downloaded', raw_line)
                     if m_already:
                         captured_files.append(m_already.group(1).strip())
@@ -607,15 +653,46 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                 proc.wait()
                 ret = proc.returncode
 
-            # 解析最终生成的文件路径和标题
+            # 解析下载配置选项
+            dl_video = opts.get("download_video", True)
+            dl_audio = opts.get("download_audio", False)
+            dl_thumb = opts.get("download_thumbnail", False)
+            dl_subs  = opts.get("download_subtitles", False)
+
+            # 若同时下载了视频和音频，清理 -k 产生的原始未合并流中间临时分片（如 title.f100023.mp4）
+            if dl_video and dl_audio and ret == 0:
+                dl_dir_clean = Path(opts.get("download_path") or cfg.get("download_path", str(DOWNLOADS_DIR)))
+                if not dl_dir_clean.is_absolute():
+                    dl_dir_clean = BASE_DIR / dl_dir_clean
+                if dl_dir_clean.exists():
+                    for f in dl_dir_clean.rglob("*.*"):
+                        if f.is_file() and re.search(r'\.f\d+\.[^.]+$', f.name):
+                            try:
+                                f.unlink()
+                            except Exception:
+                                pass
+
+            # 解析最终生成的主文件路径和标题（优先级：视频 > 音频 > 封面 > 字幕）
+            def get_file_priority(p: Path) -> int:
+                ext = p.suffix.lower()
+                if ext in ('.mp4', '.webm', '.mkv', '.mov', '.avi'): return 10 if dl_video else 2
+                if ext in ('.mp3', '.m4a', '.flac', '.wav', '.opus', '.ogg', '.aac'): return 9 if dl_audio else 3
+                if ext in ('.jpg', '.jpeg', '.png', '.webp'): return 8 if dl_thumb else 1
+                if ext in ('.srt', '.vtt', '.ass'): return 7 if dl_subs else 1
+                return 0
+
             resolved_file = None
-            for fpath_str in reversed(captured_files):
+            valid_captured = []
+            for fpath_str in captured_files:
                 p = Path(fpath_str)
                 if not p.is_absolute():
                     p = BASE_DIR / p
-                if p.exists() and p.is_file():
-                    resolved_file = p
-                    break
+                if p.exists() and p.is_file() and not re.search(r'\.f\d+\.[^.]+$', p.name):
+                    valid_captured.append(p)
+
+            if valid_captured:
+                valid_captured.sort(key=lambda x: (get_file_priority(x), x.stat().st_mtime), reverse=True)
+                resolved_file = valid_captured[0]
 
             if not resolved_file and ret == 0:
                 dl_dir = Path(opts.get("download_path") or cfg.get("download_path", str(DOWNLOADS_DIR)))
@@ -623,11 +700,11 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                     dl_dir = BASE_DIR / dl_dir
                 if dl_dir.exists():
                     candidates = [
-                        f for f in dl_dir.glob("*.*")
-                        if not f.name.endswith((".part", ".ytdl")) and not re.search(r'\.f\d+\.[^.]+$', f.name)
+                        f for f in dl_dir.rglob("*.*")
+                        if f.is_file() and not f.name.endswith((".part", ".ytdl")) and not re.search(r'\.f\d+\.[^.]+$', f.name)
                     ]
                     if candidates:
-                        candidates.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+                        candidates.sort(key=lambda x: (get_file_priority(x), x.stat().st_mtime), reverse=True)
                         if time.time() - candidates[0].stat().st_mtime < 180:
                             resolved_file = candidates[0]
 
@@ -640,6 +717,14 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                 resolved_size = 0
                 resolved_title = tasks[task_id].get("title") or url
 
+            # 格式标签
+            format_labels = []
+            if dl_video: format_labels.append("视频")
+            if dl_audio: format_labels.append("音频")
+            if dl_thumb: format_labels.append("封面")
+            if dl_subs:  format_labels.append("字幕")
+            fmt_display = "+".join(format_labels) if format_labels else opts.get("format", "video")
+
             entry = {
                 "id": str(uuid.uuid4()),
                 "task_id": task_id,
@@ -649,7 +734,7 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                 "file_path": rel_path,
                 "file_size": resolved_size,
                 "status": "success" if ret == 0 else "error",
-                "format": opts.get("format", "video"),
+                "format": fmt_display,
                 "quality": opts.get("quality", "best"),
                 "timestamp": datetime.now().isoformat(),
                 "download_path": opts.get("download_path") or cfg.get("download_path"),
@@ -808,8 +893,18 @@ def api_download():
         }
         task_queues[task_id] = q
 
+    dl_video = data.get("download_video")
+    dl_audio = data.get("download_audio")
+    if dl_video is None and dl_audio is None:
+        legacy_fmt = data.get("format", "video")
+        dl_video = (legacy_fmt == "video")
+        dl_audio = (legacy_fmt == "audio")
+
     opts = {
-        "format":             data.get("format", "video"),
+        "download_thumbnail": bool(data.get("download_thumbnail", False)),
+        "download_video":     bool(dl_video if dl_video is not None else True),
+        "download_audio":     bool(dl_audio if dl_audio is not None else False),
+        "download_subtitles": bool(data.get("download_subtitles", False)),
         "quality":            data.get("quality", "best"),
         "video_format":       data.get("video_format", "mp4"),
         "audio_format":       data.get("audio_format", "mp3"),
@@ -819,7 +914,6 @@ def api_download():
         "cookie_mode":        data.get("cookie_mode") or cfg.get("cookie_mode", "file"),
         "browser_name":       data.get("browser_name") or cfg.get("browser_name", "chrome"),
         "cookie_file":        data.get("cookie_file") or cfg.get("cookie_file", "cookies.txt"),
-        "download_subtitles": data.get("download_subtitles", False),
         "subtitle_langs":     data.get("subtitle_langs") or cfg.get("subtitle_langs"),
         "embed_subtitles":    data.get("embed_subtitles", False),
         "playlist_start":     data.get("playlist_start", ""),
@@ -1303,12 +1397,12 @@ def api_version():
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
         return jsonify({
-            "app": "1.0.2",
+            "app": "1.0.3",
             "yt_dlp": result.stdout.strip(),
             "ffmpeg": _ffmpeg_version(),
         })
     except Exception as e:
-        return jsonify({"app": "1.0.2", "yt_dlp": "未知", "ffmpeg": "未知", "error": str(e)})
+        return jsonify({"app": "1.0.3", "yt_dlp": "未知", "ffmpeg": "未知", "error": str(e)})
 
 
 def _ffmpeg_version() -> str:

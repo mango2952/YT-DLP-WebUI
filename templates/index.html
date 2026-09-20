@@ -32,7 +32,7 @@
         </button>
         <div id="version-badge" class="version-badge" title="版本信息">
           <span class="dot-online"></span>
-          <span id="version-text">v1.0.2</span>
+          <span id="version-text">v1.0.3</span>
         </div>
       </div>
     </div>
@@ -81,12 +81,34 @@
           <h2 class="card-title" data-i18n="optionsTitle">下载选项</h2>
         </div>
         <div class="options-grid">
-          <!-- 类型 -->
-          <div class="opt-group">
-            <label class="opt-label" data-i18n="optType">类型</label>
-            <div class="seg-control" id="format-seg">
-              <button class="seg-btn active" data-value="video" data-i18n="optVideo">视频</button>
-              <button class="seg-btn" data-value="audio" data-i18n="optAudio">音频</button>
+          <!-- 下载内容选择 -->
+          <div class="opt-group" style="grid-column: 1 / -1;">
+            <label class="opt-label" data-i18n="optContent">下载内容</label>
+            <div class="content-toggles">
+              <label class="content-toggle-item" id="ct-thumbnail">
+                <input type="checkbox" id="chk-thumbnail" style="display:none" />
+                <span class="ct-icon">🖼️</span>
+                <span class="toggle-track"></span>
+                <span class="ct-text" data-i18n="optThumbnail">封面</span>
+              </label>
+              <label class="content-toggle-item active" id="ct-video">
+                <input type="checkbox" id="chk-video" checked style="display:none" />
+                <span class="ct-icon">🎬</span>
+                <span class="toggle-track"></span>
+                <span class="ct-text" data-i18n="optVideo">视频</span>
+              </label>
+              <label class="content-toggle-item" id="ct-audio">
+                <input type="checkbox" id="chk-audio" style="display:none" />
+                <span class="ct-icon">🎵</span>
+                <span class="toggle-track"></span>
+                <span class="ct-text" data-i18n="optAudioOnly">音频</span>
+              </label>
+              <label class="content-toggle-item" id="ct-subtitle">
+                <input type="checkbox" id="chk-subtitle" style="display:none" />
+                <span class="ct-icon">📝</span>
+                <span class="toggle-track"></span>
+                <span class="ct-text" data-i18n="optSubtitle">字幕</span>
+              </label>
             </div>
           </div>
 
@@ -127,22 +149,16 @@
             </select>
           </div>
 
-          <!-- 字幕 -->
-          <div class="opt-group">
-            <label class="opt-label" data-i18n="optSubtitle">字幕</label>
+          <!-- 字幕选项（勾选字幕后显示） -->
+          <div class="opt-group hidden" id="subtitle-options-group">
+            <label class="opt-label" data-i18n="optSubtitleLang">字幕语言</label>
             <div class="toggle-row">
-              <label class="toggle">
-                <input type="checkbox" id="chk-subtitle" />
-                <span class="toggle-track"></span>
+              <input type="text" id="subtitle-langs" class="opt-input-sm" value="zh-Hans,zh,en" placeholder="zh-Hans,en" />
+              <label class="toggle-mini">
+                <input type="checkbox" id="chk-embed-sub" />
+                <span class="toggle-track-sm"></span>
+                <span data-i18n="optEmbedSub">嵌入视频</span>
               </label>
-              <span id="subtitle-langs-wrap" class="toggle-sub hidden">
-                <input type="text" id="subtitle-langs" class="opt-input-sm" value="zh-Hans,zh,en" placeholder="zh-Hans,en" />
-                <label class="toggle-mini">
-                  <input type="checkbox" id="chk-embed-sub" />
-                  <span class="toggle-track-sm"></span>
-                  <span data-i18n="optEmbedSub">嵌入</span>
-                </label>
-              </span>
             </div>
           </div>
 
@@ -543,6 +559,6 @@
   </div>
 
   <script src="/static/js/qrcode.min.js"></script>
-  <script src="/static/js/app.js?v=1.0.2"></script>
+  <script src="/static/js/app.js?v=1.0.3"></script>
 </body>
 </html>

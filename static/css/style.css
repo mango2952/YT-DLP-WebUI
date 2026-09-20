@@ -479,6 +479,67 @@ body {
   background: var(--accent);
 }
 
+/* Content toggles grid (download type selection) */
+.content-toggles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+@media (max-width: 520px) {
+  .content-toggles { grid-template-columns: repeat(2, 1fr); }
+}
+
+.content-toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--tr-fast);
+  user-select: none;
+}
+.content-toggle-item:hover {
+  border-color: var(--border-focus);
+  background: rgba(255,255,255,0.03);
+}
+.content-toggle-item.active {
+  border-color: var(--accent);
+  background: rgba(99,179,237,0.08);
+}
+.content-toggle-item .ct-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.content-toggle-item .ct-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.content-toggle-item.active .ct-text {
+  color: var(--accent);
+}
+.content-toggle-item .toggle-track {
+  margin-left: auto;
+  width: 28px;
+  height: 16px;
+}
+.content-toggle-item .toggle-track::after {
+  width: 10px;
+  height: 10px;
+}
+.content-toggle-item.active .toggle-track {
+  background: var(--accent-dark);
+  border-color: var(--accent);
+}
+.content-toggle-item.active .toggle-track::after {
+  left: calc(100% - 12px);
+  background: var(--accent);
+}
+
 /* Range row */
 .range-row {
   display: flex;
