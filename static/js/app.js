@@ -118,13 +118,18 @@ const I18N = {
     aboutDevDesc: '本产品由 Muse AI 与 Google Antigravity 协作开发完成。',
     logModalHint: '如遇软件报错，可点击【导出】将日志文件发送至作者邮箱：',
     fmtPickerBtn: '🎛️ 指定格式',
-    fmtPickerTitle: '为这个链接单独指定格式（可选）；不选则使用全局设置',
+    fmtPickerTitle: '两个都不选则使用全局设置；选了任意一个就进入手动模式，只下载所选格式；两个都选则合并',
     fmtDefault: '默认',
     fmtGroupVideo: '视频',
     fmtGroupAudio: '纯音频',
     fmtLoading: ' 获取中…',
     advTitle: '⚙️ 高级：逐链接指定来源格式',
-    advHint: '为每个链接单独指定视频来源格式（精确到 yt-dlp 格式编号），会覆盖上方的"质量"设置；不选则使用全局设置。',
+    advHint: '为每个链接单独指定视频/音频来源格式。两个都不选则使用全局设置；选了任意一个就进入手动模式，只下载所选格式；两个都选则合并。',
+    advVideoSelectLabel: '视频',
+    advVideoSelectTitle: '视频格式',
+    advAudioSelectLabel: '音频',
+    advAudioSelectTitle: '音频格式',
+    advFormatTooltip: '两个都不选则使用全局设置；选了任意一个就进入手动模式，只下载所选格式；两个都选则合并',
     advFetchAll: '🔍 获取全部链接的格式',
     advNoUrl: '请先在上方输入链接',
     advNoFormats: '未检测到可用格式',
@@ -261,13 +266,18 @@ const I18N = {
     aboutDevDesc: 'Developed collaboratively by Muse AI and Google Antigravity.',
     logModalHint: 'If you encounter an error, export and email logs to:',
     fmtPickerBtn: '🎛️ Format',
-    fmtPickerTitle: 'Set a specific format for this URL (optional); leave unset to use the global settings',
+    fmtPickerTitle: 'Leave both empty to use global settings; select either to download only that format; select both to merge',
     fmtDefault: 'Default',
     fmtGroupVideo: 'Video',
     fmtGroupAudio: 'Audio only',
     fmtLoading: ' Loading…',
     advTitle: '⚙️ Advanced: per-URL source format',
-    advHint: 'Set a specific source format per URL (exact yt-dlp format ID); overrides the Quality setting above. Leave unset to use global settings.',
+    advHint: 'Specify video and audio source formats per URL. Leave both empty to use global settings; select either to download only that format; select both to merge.',
+    advVideoSelectLabel: 'Video',
+    advVideoSelectTitle: 'Video format',
+    advAudioSelectLabel: 'Audio',
+    advAudioSelectTitle: 'Audio format',
+    advFormatTooltip: 'Leave both empty to use global settings; select either to download only that format; select both to merge',
     advFetchAll: '🔍 Fetch formats for all URLs',
     advNoUrl: 'Enter URLs above first',
     advNoFormats: 'No formats detected',
@@ -411,13 +421,14 @@ function initFormatToggle() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 function formatOptionLabel(f) {
+  const prefix = f.id ? `[${f.id}] ` : '';
   const isAudioOnly = f.vcodec === 'none' || (!f.resolution && f.acodec && f.acodec !== 'none');
   const ext = f.ext || '';
   if (isAudioOnly) {
-    let lbl = `audio only ${ext}`;
+    let lbl = `audio only ${ext}`.trim();
     if (f.format_note && f.format_note.toLowerCase() !== 'tiny') lbl += ` (${f.format_note})`;
     if (f.filesize) lbl += ` - ${formatFileSize(f.filesize)}`;
-    return lbl;
+    return `${prefix}${lbl}`.trim();
   }
   let res = f.format_note || '';
   if (!res && f.resolution) {
@@ -427,7 +438,7 @@ function formatOptionLabel(f) {
   let lbl = `${res ? res + ' ' : ''}${ext}`.trim();
   if (f.fps && f.fps > 30) lbl += ` ${f.fps}fps`;
   if (f.filesize) lbl += ` - ${formatFileSize(f.filesize)}`;
-  return lbl || f.id;
+  return `${prefix}${lbl || f.id}`.trim();
 }
 
 function formatFileSize(bytes) {
@@ -533,7 +544,7 @@ function truncateMiddle(str, maxLen) {
   return str.slice(0, maxLen - 3) + '...';
 }
 
-// 高级模式已选格式：{ url: formatId }，行重建后用于恢复选择
+// 高级模式已选格式：{ url: { video: "<id或空>", audio: "<id或空>" } }，行重建后用于恢复选择
 let advSelectedFormats = {};
 
 function initAdvancedSection() {
@@ -578,28 +589,57 @@ function buildAdvancedFormatRows() {
     const div = document.createElement('div');
     div.className = 'adv-format-row';
     const safeUrl = escapeHtml(url);
+    const tooltipText = escapeHtml(t('advFormatTooltip'));
+    const prevSel = (typeof advSelectedFormats[url] === 'object' && advSelectedFormats[url]) ? advSelectedFormats[url] : {};
+
     div.innerHTML = `
-      <span class="adv-url-label" title="${safeUrl}">${escapeHtml(truncateMiddle(url, 52))}</span>
-      <select class="adv-format-select opt-select" data-url="${safeUrl}" title="${escapeHtml(t('fmtPickerTitle'))}">
-        <option value="">${escapeHtml(t('fmtDefault'))}</option>
-      </select>
+      <span class="adv-url-label" title="${safeUrl}">${escapeHtml(truncateMiddle(url, 38))}</span>
+      <div class="adv-select-group">
+        <div class="adv-select-item" title="${tooltipText}">
+          <span class="adv-select-label" data-i18n="advVideoSelectLabel">${escapeHtml(t('advVideoSelectLabel'))}</span>
+          <select class="adv-format-select adv-video-select opt-select" data-url="${safeUrl}" title="${tooltipText}" data-i18n-title="advFormatTooltip" aria-label="${escapeHtml(t('advVideoSelectTitle'))}">
+            <option value="" data-i18n="fmtDefault">${escapeHtml(t('fmtDefault'))}</option>
+            ${prevSel.video ? `<option value="${escapeHtml(prevSel.video)}" selected>[${escapeHtml(prevSel.video)}]</option>` : ''}
+          </select>
+        </div>
+        <div class="adv-select-item" title="${tooltipText}">
+          <span class="adv-select-label" data-i18n="advAudioSelectLabel">${escapeHtml(t('advAudioSelectLabel'))}</span>
+          <select class="adv-format-select adv-audio-select opt-select" data-url="${safeUrl}" title="${tooltipText}" data-i18n-title="advFormatTooltip" aria-label="${escapeHtml(t('advAudioSelectTitle'))}">
+            <option value="" data-i18n="fmtDefault">${escapeHtml(t('fmtDefault'))}</option>
+            ${prevSel.audio ? `<option value="${escapeHtml(prevSel.audio)}" selected>[${escapeHtml(prevSel.audio)}]</option>` : ''}
+          </select>
+        </div>
+      </div>
       <span class="adv-row-status"></span>`;
-    const select = div.querySelector('.adv-format-select');
-    select.addEventListener('change', () => {
-      if (select.value) advSelectedFormats[url] = select.value;
-      else delete advSelectedFormats[url];
-    });
+
+    const videoSelect = div.querySelector('.adv-video-select');
+    const audioSelect = div.querySelector('.adv-audio-select');
+
+    const updateSelected = () => {
+      advSelectedFormats[url] = {
+        video: videoSelect.value || '',
+        audio: audioSelect.value || '',
+      };
+    };
+
+    videoSelect.addEventListener('change', updateSelected);
+    audioSelect.addEventListener('change', updateSelected);
+
     container.appendChild(div);
   });
 }
 
 async function fetchFormatsIntoSelect(rowDiv) {
-  const select = rowDiv.querySelector('.adv-format-select');
+  const videoSelect = rowDiv.querySelector('.adv-video-select');
+  const audioSelect = rowDiv.querySelector('.adv-audio-select');
   const status = rowDiv.querySelector('.adv-row-status');
-  const url = select ? select.dataset.url : '';
-  if (!select || !url) return;
-  select.disabled = true;
+  const url = (videoSelect && videoSelect.dataset.url) || (audioSelect && audioSelect.dataset.url) || '';
+  if (!videoSelect || !audioSelect || !url) return;
+
+  videoSelect.disabled = true;
+  audioSelect.disabled = true;
   if (status) status.textContent = t('fmtLoading');
+
   try {
     const res = await fetch('/api/formats', {
       method: 'POST',
@@ -609,38 +649,55 @@ async function fetchFormatsIntoSelect(rowDiv) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'failed');
     const formats = data.formats || [];
-    select.innerHTML = '';
-    const defaultOpt = document.createElement('option');
-    defaultOpt.value = '';
-    defaultOpt.textContent = t('fmtDefault');
-    select.appendChild(defaultOpt);
+
+    videoSelect.innerHTML = '';
+    const videoDefaultOpt = document.createElement('option');
+    videoDefaultOpt.value = '';
+    videoDefaultOpt.textContent = t('fmtDefault');
+    videoDefaultOpt.setAttribute('data-i18n', 'fmtDefault');
+    videoSelect.appendChild(videoDefaultOpt);
+
+    audioSelect.innerHTML = '';
+    const audioDefaultOpt = document.createElement('option');
+    audioDefaultOpt.value = '';
+    audioDefaultOpt.textContent = t('fmtDefault');
+    audioDefaultOpt.setAttribute('data-i18n', 'fmtDefault');
+    audioSelect.appendChild(audioDefaultOpt);
+
     if (!formats.length) {
       if (status) status.textContent = t('advNoFormats');
     } else {
-      const videoGroup = document.createElement('optgroup');
-      videoGroup.label = t('fmtGroupVideo');
-      const audioGroup = document.createElement('optgroup');
-      audioGroup.label = t('fmtGroupAudio');
       formats.forEach(f => {
-        const opt = document.createElement('option');
-        opt.value = f.id;
-        opt.textContent = formatOptionLabel(f);
-        const isAudioOnly = f.vcodec === 'none' || (!f.resolution && f.acodec && f.acodec !== 'none');
-        (isAudioOnly ? audioGroup : videoGroup).appendChild(opt);
+        if (f.vcodec && f.vcodec !== 'none') {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = formatOptionLabel(f);
+          videoSelect.appendChild(opt);
+        }
+        if (f.acodec && f.acodec !== 'none') {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = formatOptionLabel(f);
+          audioSelect.appendChild(opt);
+        }
       });
-      if (videoGroup.children.length) select.appendChild(videoGroup);
-      if (audioGroup.children.length) select.appendChild(audioGroup);
+
       // 恢复之前为该 URL 选过的格式
-      const prevSel = advSelectedFormats[url];
-      if (prevSel && select.querySelector(`option[value="${prevSel}"]`)) {
-        select.value = prevSel;
+      const prevSel = (typeof advSelectedFormats[url] === 'object' && advSelectedFormats[url]) ? advSelectedFormats[url] : {};
+      if (prevSel.video && videoSelect.querySelector(`option[value="${prevSel.video}"]`)) {
+        videoSelect.value = prevSel.video;
       }
+      if (prevSel.audio && audioSelect.querySelector(`option[value="${prevSel.audio}"]`)) {
+        audioSelect.value = prevSel.audio;
+      }
+
       if (status) status.textContent = '';
     }
   } catch (err) {
     if (status) status.textContent = t('advFetchFailed');
   } finally {
-    select.disabled = false;
+    videoSelect.disabled = false;
+    audioSelect.disabled = false;
   }
 }
 
@@ -671,12 +728,27 @@ function getAllUrlRowsData() {
     }
   }
 
-  // 高级模式：逐链接指定的来源格式
-  document.querySelectorAll('#advanced-format-rows .adv-format-select').forEach(sel => {
-    if (sel.value && sel.dataset.url) {
-      formats[sel.dataset.url] = sel.value;
+  // 高级模式：逐链接指定的来源格式（视频 + 音频）
+  document.querySelectorAll('#advanced-format-rows .adv-format-row').forEach(row => {
+    const vSel = row.querySelector('.adv-video-select');
+    const aSel = row.querySelector('.adv-audio-select');
+    const url = (vSel && vSel.dataset.url) || (aSel && aSel.dataset.url);
+    if (url) {
+      advSelectedFormats[url] = {
+        video: (vSel && vSel.value) ? vSel.value : '',
+        audio: (aSel && aSel.value) ? aSel.value : '',
+      };
     }
   });
+
+  for (const [url, fmt] of Object.entries(advSelectedFormats)) {
+    if (fmt && (fmt.video || fmt.audio)) {
+      formats[url] = {
+        video: fmt.video || '',
+        audio: fmt.audio || '',
+      };
+    }
+  }
 
   return { urls, formats };
 }

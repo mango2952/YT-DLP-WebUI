@@ -484,25 +484,51 @@ def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
         cmd += ["--write-thumbnail", "--convert-thumbnails", "jpg"]
 
     # 格式选择（视频 / 音频）
-    per_url_format = None
+    custom_video_id = None
+    custom_audio_id = None
+    legacy_format = None
+
     formats_map = opts.get("formats")
     if not isinstance(formats_map, dict) and task_id:
         with tasks_lock:
             formats_map = (tasks.get(task_id) or {}).get("formats")
     if isinstance(formats_map, dict):
-        raw_fmt = formats_map.get(url) or formats_map.get(url.strip())
-        if raw_fmt and isinstance(raw_fmt, str):
+        raw_fmt = formats_map.get(url)
+        if raw_fmt is None:
+            raw_fmt = formats_map.get(url.strip())
+        if isinstance(raw_fmt, dict):
+            vid = raw_fmt.get("video")
+            aud = raw_fmt.get("audio")
+            fmt_id_re = re.compile(r'^[A-Za-z0-9_\-\[\]]+$')
+            if vid is not None and isinstance(vid, (str, int, float)):
+                vid_str = str(vid).strip()
+                if fmt_id_re.match(vid_str):
+                    custom_video_id = vid_str
+            if aud is not None and isinstance(aud, (str, int, float)):
+                aud_str = str(aud).strip()
+                if fmt_id_re.match(aud_str):
+                    custom_audio_id = aud_str
+        elif isinstance(raw_fmt, str):
             raw_fmt = raw_fmt.strip()
             if re.match(r'^[A-Za-z0-9_\-\[\]+]+$', raw_fmt):
-                per_url_format = raw_fmt
+                legacy_format = raw_fmt
 
     quality = opts.get("quality", "best")
     video_fmt = opts.get("video_format", "mp4")
     audio_fmt = opts.get("audio_format", "mp3")
 
-    if per_url_format:
+    if custom_video_id or custom_audio_id:
+        # 手动双下拉框模式：只下载所选格式，两个都选则合并
+        if custom_video_id and custom_audio_id:
+            cmd += ["-f", f"{custom_video_id}+{custom_audio_id}", "--merge-output-format", video_fmt]
+        elif custom_video_id:
+            cmd += ["-f", custom_video_id]
+        elif custom_audio_id:
+            cmd += ["-f", custom_audio_id]
+    elif legacy_format:
+        # 兼容旧版本 string 格式
         if dl_video or dl_audio:
-            cmd += ["-f", per_url_format]
+            cmd += ["-f", legacy_format]
             if dl_video and dl_audio:
                 cmd += [
                     "--merge-output-format", video_fmt,
