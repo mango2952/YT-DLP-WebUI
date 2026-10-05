@@ -129,6 +129,28 @@ const I18N = {
     advNoUrl: '请先在上方输入链接',
     advNoFormats: '未检测到可用格式',
     advFetchFailed: '获取失败',
+    btnBiliQr: '📱 扫码获取 B站 Cookie',
+    btnXhsQr: '📱 小红书扫码',
+    btnQuickPaste: '📋 读剪贴板',
+    btnCfgPaste: '📋 读取剪贴板',
+    cookieStatusLabel: 'Cookie 状态',
+    douyinTiktokCookieTip: 'ℹ️ 抖音/TikTok 请用浏览器 Cookie 模式',
+    qrModalTitleBili: 'B站一键扫码获取 Cookie',
+    qrModalTitleXhs: '小红书扫码获取 Cookie',
+    qrModalSubtextBili: '请打开手机哔哩哔哩客户端扫一扫并确认登录。<br>无需任何浏览器插件，自动写入 cookies.txt，用于下载 1080P 60帧/4K 高清视频。',
+    qrModalSubtextXhs: '请打开手机小红书客户端扫一扫并确认登录。<br>无需任何浏览器插件，自动写入 cookies.txt，用于下载无水印高清视频与图文。',
+    qrStatusGenerating: '正在获取登录二维码…',
+    qrStatusScanBili: '请打开手机哔哩哔哩客户端扫一扫登录',
+    qrStatusScanXhs: '请打开手机小红书客户端扫一扫登录',
+    qrStatusScanned: '✓ 已扫码，请在手机上确认登录…',
+    qrStatusExpired: '二维码已失效，请点击刷新',
+    qrExpired: '已过期',
+    btnRefreshQr: '点击刷新',
+    toastBiliSuccess: '🎉 B站 Cookie 同步成功！已自动保存并启用',
+    toastXhsSuccess: '🎉 小红书 Cookie 同步成功！已自动保存并启用',
+    cookieLoggedBili: 'B站',
+    cookieLoggedXhs: '小红书',
+    cookieConfigured: '已配置 Cookie',
   },
   en: {
     appName: 'YT-DLP WebUI',
@@ -250,6 +272,28 @@ const I18N = {
     advNoUrl: 'Enter URLs above first',
     advNoFormats: 'No formats detected',
     advFetchFailed: 'Fetch failed',
+    btnBiliQr: '📱 Bilibili QR Login',
+    btnXhsQr: '📱 Xiaohongshu QR Login',
+    btnQuickPaste: '📋 Read Clipboard',
+    btnCfgPaste: '📋 Read Clipboard',
+    cookieStatusLabel: 'Cookie Status',
+    douyinTiktokCookieTip: 'ℹ️ For Douyin / TikTok, please use Browser Cookie mode',
+    qrModalTitleBili: 'Scan QR code to get Bilibili Cookie',
+    qrModalTitleXhs: 'Scan QR code to get Xiaohongshu Cookie',
+    qrModalSubtextBili: 'Open the Bilibili mobile app to scan and confirm login.<br>Automatically saved to cookies.txt for 1080P/4K downloads.',
+    qrModalSubtextXhs: 'Open the Xiaohongshu mobile app to scan and confirm login.<br>Automatically saved to cookies.txt for HD downloads.',
+    qrStatusGenerating: 'Generating QR code…',
+    qrStatusScanBili: 'Please scan with the Bilibili app to log in',
+    qrStatusScanXhs: 'Please scan with the Xiaohongshu app to log in',
+    qrStatusScanned: '✓ Scanned! Please confirm login on your phone…',
+    qrStatusExpired: 'QR code expired. Please click to refresh.',
+    qrExpired: 'Expired',
+    btnRefreshQr: 'Click to Refresh',
+    toastBiliSuccess: '🎉 Bilibili Cookie synced! Saved and enabled automatically.',
+    toastXhsSuccess: '🎉 Xiaohongshu Cookie synced! Saved and enabled automatically.',
+    cookieLoggedBili: 'Bilibili',
+    cookieLoggedXhs: 'Xiaohongshu',
+    cookieConfigured: 'Cookie Configured',
   },
 };
 
@@ -1548,8 +1592,9 @@ function flashStatus(id, msg) {
 // Cookie 状态与 Bilibili 扫码获取
 // ══════════════════════════════════════════════════════════════════════════════
 
-let biliQrPollTimer = null;
-let biliQrCodeObj = null;
+let platformQrPollTimer = null;
+let platformQrCodeObj = null;
+let currentQrPlatform = 'bilibili';
 
 async function refreshCookieStatus() {
   try {
@@ -1561,7 +1606,11 @@ async function refreshCookieStatus() {
     const cfgDetail = document.getElementById('cfg-cookie-details');
 
     if (data.exists) {
-      const text = data.has_bilibili ? '✓ 已登录 B站' : '✓ 已配置 Cookie';
+      const logged = [];
+      if (data.has_bilibili) logged.push(t('cookieLoggedBili'));
+      if (data.has_xiaohongshu) logged.push(t('cookieLoggedXhs'));
+      if (data.has_youtube) logged.push('YouTube');
+      const text = logged.length ? `✓ ${currentLang === 'zh' ? '已登录 ' : 'Logged in: '}${logged.join('+')}` : t('cookieConfigured');
       if (mainBadge) {
         mainBadge.textContent = text;
         mainBadge.className = 'cookie-status-badge configured';
@@ -1575,15 +1624,15 @@ async function refreshCookieStatus() {
       }
     } else {
       if (mainBadge) {
-        mainBadge.textContent = '未配置';
+        mainBadge.textContent = currentLang === 'zh' ? '未配置' : 'Not configured';
         mainBadge.className = 'cookie-status-badge unconfigured';
       }
       if (cfgBadge) {
-        cfgBadge.textContent = '未配置';
+        cfgBadge.textContent = currentLang === 'zh' ? '未配置' : 'Not configured';
         cfgBadge.className = 'cookie-status-badge unconfigured';
       }
       if (cfgDetail) {
-        cfgDetail.textContent = '尚未添加 Cookie（下载 1080P 60帧/4K 或受限视频需登录）';
+        cfgDetail.textContent = currentLang === 'zh' ? '尚未添加 Cookie（下载 1080P 60帧/4K 或受限视频需登录）' : 'No cookies added yet (required for 1080P/4K or restricted videos)';
       }
     }
   } catch (err) {
@@ -1591,8 +1640,11 @@ async function refreshCookieStatus() {
   }
 }
 
-async function openBiliQrModal() {
+async function openPlatformQrModal(platform = 'bilibili') {
+  currentQrPlatform = platform;
   const modal = document.getElementById('bili-qr-modal');
+  const titleEl = document.getElementById('qr-modal-title');
+  const subtextEl = document.getElementById('bili-qr-subtext');
   const canvasEl = document.getElementById('bili-qr-canvas');
   const overlay = document.getElementById('bili-qr-overlay');
   const msgEl = document.getElementById('bili-qr-msg');
@@ -1600,21 +1652,31 @@ async function openBiliQrModal() {
   if (!modal) return;
   modal.classList.remove('hidden');
   if (overlay) overlay.classList.add('hidden');
-  if (msgEl) msgEl.textContent = '正在获取登录二维码…';
+
+  if (platform === 'xiaohongshu') {
+    if (titleEl) titleEl.textContent = t('qrModalTitleXhs');
+    if (subtextEl) subtextEl.innerHTML = t('qrModalSubtextXhs');
+  } else {
+    if (titleEl) titleEl.textContent = t('qrModalTitleBili');
+    if (subtextEl) subtextEl.innerHTML = t('qrModalSubtextBili');
+  }
+
+  if (msgEl) msgEl.textContent = t('qrStatusGenerating');
   if (canvasEl) canvasEl.innerHTML = '';
 
-  if (biliQrPollTimer) {
-    clearInterval(biliQrPollTimer);
-    biliQrPollTimer = null;
+  if (platformQrPollTimer) {
+    clearInterval(platformQrPollTimer);
+    platformQrPollTimer = null;
   }
 
   try {
-    const res = await fetch('/api/bilibili/qrcode');
+    const qrcodeEndpoint = platform === 'xiaohongshu' ? '/api/xiaohongshu/qrcode' : '/api/bilibili/qrcode';
+    const res = await fetch(qrcodeEndpoint);
     const data = await res.json();
-    if (!data.ok) throw new Error(data.error || '获取二维码失败');
+    if (!data.ok) throw new Error(data.error || t('advFetchFailed'));
 
     canvasEl.innerHTML = '';
-    biliQrCodeObj = new QRCode(canvasEl, {
+    platformQrCodeObj = new QRCode(canvasEl, {
       text: data.url,
       width: 180,
       height: 180,
@@ -1623,26 +1685,33 @@ async function openBiliQrModal() {
       correctLevel: QRCode.CorrectLevel.M,
     });
 
-    if (msgEl) msgEl.textContent = '请打开手机哔哩哔哩客户端扫一扫登录';
+    if (msgEl) {
+      msgEl.textContent = platform === 'xiaohongshu' ? t('qrStatusScanXhs') : t('qrStatusScanBili');
+    }
 
-    biliQrPollTimer = setInterval(async () => {
+    const pollUrl = platform === 'xiaohongshu'
+      ? `/api/xiaohongshu/poll?qr_id=${encodeURIComponent(data.qr_id)}&code=${encodeURIComponent(data.code)}`
+      : `/api/bilibili/poll?qrcode_key=${encodeURIComponent(data.qrcode_key)}`;
+
+    platformQrPollTimer = setInterval(async () => {
       try {
-        const pollRes = await fetch(`/api/bilibili/poll?qrcode_key=${encodeURIComponent(data.qrcode_key)}`);
+        const pollRes = await fetch(pollUrl);
         const pollData = await pollRes.json();
 
         if (pollData.code === 0) {
-          clearInterval(biliQrPollTimer);
-          biliQrPollTimer = null;
-          closeBiliQrModal();
-          showToast('🎉 B站 Cookie 同步成功！已自动保存并启用', 'success');
+          clearInterval(platformQrPollTimer);
+          platformQrPollTimer = null;
+          closePlatformQrModal();
+          const toastMsg = platform === 'xiaohongshu' ? t('toastXhsSuccess') : t('toastBiliSuccess');
+          showToast(toastMsg, 'success');
           refreshCookieStatus();
         } else if (pollData.code === 86090) {
-          if (msgEl) msgEl.textContent = '✓ 已扫码，请在手机上确认登录…';
+          if (msgEl) msgEl.textContent = t('qrStatusScanned');
         } else if (pollData.code === 86038) {
-          clearInterval(biliQrPollTimer);
-          biliQrPollTimer = null;
+          clearInterval(platformQrPollTimer);
+          platformQrPollTimer = null;
           if (overlay) overlay.classList.remove('hidden');
-          if (msgEl) msgEl.textContent = '二维码已失效，请点击刷新';
+          if (msgEl) msgEl.textContent = t('qrStatusExpired');
         }
       } catch (e) {
         console.error('Poll error:', e);
@@ -1650,17 +1719,26 @@ async function openBiliQrModal() {
     }, 1500);
 
   } catch (err) {
-    if (msgEl) msgEl.textContent = `生成失败: ${err.message}`;
+    if (msgEl) msgEl.textContent = `${t('advFetchFailed')}: ${err.message}`;
   }
 }
 
-function closeBiliQrModal() {
+function closePlatformQrModal() {
   const modal = document.getElementById('bili-qr-modal');
   if (modal) modal.classList.add('hidden');
-  if (biliQrPollTimer) {
-    clearInterval(biliQrPollTimer);
-    biliQrPollTimer = null;
+  if (platformQrPollTimer) {
+    clearInterval(platformQrPollTimer);
+    platformQrPollTimer = null;
   }
+}
+
+// 兼容别名
+function openBiliQrModal() {
+  openPlatformQrModal('bilibili');
+}
+
+function closeBiliQrModal() {
+  closePlatformQrModal();
 }
 
 async function readClipboardCookie() {
@@ -1868,28 +1946,34 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       closeLogModal();
-      closeBiliQrModal();
+      closePlatformQrModal();
       closeDonateModal();
     }
   });
 
-  // Bilibili 扫码与 Cookie 按钮绑定
+  // 平台扫码与 Cookie 按钮绑定
   const btnQuickBiliQr = document.getElementById('btn-quick-bili-qr');
-  if (btnQuickBiliQr) btnQuickBiliQr.addEventListener('click', openBiliQrModal);
+  if (btnQuickBiliQr) btnQuickBiliQr.addEventListener('click', () => openPlatformQrModal('bilibili'));
+
+  const btnQuickXhsQr = document.getElementById('btn-quick-xhs-qr');
+  if (btnQuickXhsQr) btnQuickXhsQr.addEventListener('click', () => openPlatformQrModal('xiaohongshu'));
 
   const btnCfgBiliQr = document.getElementById('btn-cfg-bili-qr');
-  if (btnCfgBiliQr) btnCfgBiliQr.addEventListener('click', openBiliQrModal);
+  if (btnCfgBiliQr) btnCfgBiliQr.addEventListener('click', () => openPlatformQrModal('bilibili'));
+
+  const btnCfgXhsQr = document.getElementById('btn-cfg-xhs-qr');
+  if (btnCfgXhsQr) btnCfgXhsQr.addEventListener('click', () => openPlatformQrModal('xiaohongshu'));
 
   const btnCloseBiliQr = document.getElementById('btn-close-bili-qr');
-  if (btnCloseBiliQr) btnCloseBiliQr.addEventListener('click', closeBiliQrModal);
+  if (btnCloseBiliQr) btnCloseBiliQr.addEventListener('click', closePlatformQrModal);
 
   const btnRefreshBiliQr = document.getElementById('btn-refresh-bili-qr');
-  if (btnRefreshBiliQr) btnRefreshBiliQr.addEventListener('click', openBiliQrModal);
+  if (btnRefreshBiliQr) btnRefreshBiliQr.addEventListener('click', () => openPlatformQrModal(currentQrPlatform));
 
   const modalBiliQr = document.getElementById('bili-qr-modal');
   if (modalBiliQr) {
     modalBiliQr.addEventListener('click', e => {
-      if (e.target === modalBiliQr) closeBiliQrModal();
+      if (e.target === modalBiliQr) closePlatformQrModal();
     });
   }
 

@@ -85,6 +85,14 @@ python app.py
 
 ---
 
+## 🍪 Cookie Setup
+
+- **Browser Cookie (recommended)**: Settings → Cookie Settings → select "🌐 Browser Cookie" and choose your daily browser. Downloads automatically share its login state.
+- **📱 QR Login**: on the Download tab, under Download Options → Cookie status, click "📱 Bilibili QR Login" or "📱 Xiaohongshu QR Login", then scan with the mobile app to confirm. Cookies are saved to `cookies.txt` automatically (multiple platforms coexist without overwriting each other).
+  > ℹ️ Douyin / TikTok QR login is not offered (their login API is protected by anti-bot measures) — please use Browser Cookie mode instead: log in normally in your own browser and the app reads the login state automatically.
+
+---
+
 ## 📁 Directory Structure
 
 ```

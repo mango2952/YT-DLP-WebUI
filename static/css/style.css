@@ -1259,6 +1259,12 @@ option, optgroup {
   flex-wrap: wrap;
 }
 
+.quick-cookie-tip {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
 .cookie-status-bar {
   display: flex;
   align-items: center;

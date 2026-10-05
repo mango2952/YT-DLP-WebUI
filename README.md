@@ -103,6 +103,9 @@ python app.py
   进入「设置」→「Cookie 设置」→ 选择「🌐 优先调用浏览器 Cookie」→ 选择你日常登录所用的浏览器（如 Edge 或 Chrome）并保存。下载时即会自动共享登录状态。
 - **Cookie 文件**：
   若在无界面的服务器或特定环境使用，选择「📁 使用 Cookie 文件」，上传由浏览器插件（如 *Get cookies.txt LOCALLY*）导出的 Netscape 格式 `cookies.txt`。
+- **📱 扫码登录**：
+  在首页「下载选项」→ Cookie 状态处点击「📱 扫码获取 B站 Cookie」或「📱 小红书扫码」，用手机 App 扫码确认即可，Cookie 自动写入 `cookies.txt`（多平台共存，互不覆盖）。
+  > ℹ️ 抖音 / TikTok 暂不提供扫码登录（其登录接口有反爬保护），请使用「浏览器 Cookie」模式：在自己浏览器里正常登录后，app 自动读取登录状态。
 
 ### 3. 网络代理设置
 如果在访问部分站点时需要代理：

@@ -184,15 +184,21 @@
 
           <!-- Cookie 状态与快捷按钮 -->
           <div class="opt-group" id="quick-cookie-group">
-            <label class="opt-label">Cookie 状态</label>
+            <label class="opt-label" data-i18n="cookieStatusLabel">Cookie 状态</label>
             <div class="quick-cookie-row">
               <span id="main-cookie-badge" class="cookie-status-badge unconfigured">未配置</span>
-              <button type="button" id="btn-quick-bili-qr" class="btn btn-secondary btn-sm" title="手机扫码获取 B站 Cookie">
+              <button type="button" id="btn-quick-bili-qr" class="btn btn-secondary btn-sm" title="手机扫码获取 B站 Cookie" data-i18n="btnBiliQr">
                 📱 扫码获取 B站 Cookie
               </button>
-              <button type="button" id="btn-quick-paste-clip" class="btn btn-ghost btn-sm" title="读取剪贴板中的 Cookie 或 SESSDATA">
+              <button type="button" id="btn-quick-xhs-qr" class="btn btn-secondary btn-sm" title="手机扫码获取 小红书 Cookie" data-i18n="btnXhsQr">
+                📱 小红书扫码
+              </button>
+              <button type="button" id="btn-quick-paste-clip" class="btn btn-ghost btn-sm" title="读取剪贴板中的 Cookie 或 SESSDATA" data-i18n="btnQuickPaste">
                 📋 读剪贴板
               </button>
+            </div>
+            <div class="quick-cookie-tip" data-i18n="douyinTiktokCookieTip">
+              ℹ️ 抖音/TikTok 请用浏览器 Cookie 模式
             </div>
           </div>
         </div>
@@ -333,8 +339,9 @@
                     <span id="cfg-cookie-details" class="cookie-status-details">尚未添加 Cookie</span>
                   </div>
                   <div class="cookie-actions">
-                    <button type="button" id="btn-cfg-bili-qr" class="btn btn-primary btn-sm">📱 扫码获取 B站 Cookie</button>
-                    <button type="button" id="btn-cfg-paste-clip" class="btn btn-secondary btn-sm">📋 读取剪贴板</button>
+                    <button type="button" id="btn-cfg-bili-qr" class="btn btn-primary btn-sm" data-i18n="btnBiliQr">📱 扫码获取 B站 Cookie</button>
+                    <button type="button" id="btn-cfg-xhs-qr" class="btn btn-secondary btn-sm" data-i18n="btnXhsQr">📱 小红书扫码</button>
+                    <button type="button" id="btn-cfg-paste-clip" class="btn btn-secondary btn-sm" data-i18n="btnCfgPaste">📋 读取剪贴板</button>
                     <label class="btn btn-secondary btn-sm cookie-upload-btn" data-i18n="btnUploadCookie">
                       📤 上传 txt
                       <input type="file" id="cookie-file-input" accept=".txt" style="display:none" />
@@ -559,13 +566,13 @@
     </div>
   </div>
 
-  <!-- ══ Bilibili 扫码登录模态框 ══ -->
+  <!-- ══ 平台扫码登录模态框 ══ -->
   <div id="bili-qr-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
     <div class="modal-dialog bili-qr-dialog">
       <div class="modal-header">
         <div class="modal-title-wrap">
           <span class="modal-icon">📱</span>
-          <span class="modal-title">B站一键扫码获取 Cookie</span>
+          <span class="modal-title" id="qr-modal-title" data-i18n="qrModalTitleBili">B站一键扫码获取 Cookie</span>
         </div>
         <button id="btn-close-bili-qr" class="btn btn-ghost btn-sm modal-close" title="关闭">✕</button>
       </div>
@@ -574,13 +581,13 @@
           <div class="bili-qr-wrapper">
             <div id="bili-qr-canvas"></div>
             <div id="bili-qr-overlay" class="bili-qr-overlay hidden">
-              <span id="bili-qr-overlay-text">已过期</span>
-              <button id="btn-refresh-bili-qr" class="btn btn-primary btn-sm">点击刷新</button>
+              <span id="bili-qr-overlay-text" data-i18n="qrExpired">已过期</span>
+              <button id="btn-refresh-bili-qr" class="btn btn-primary btn-sm" data-i18n="btnRefreshQr">点击刷新</button>
             </div>
           </div>
           <div class="bili-qr-tips">
-            <div id="bili-qr-msg" class="bili-qr-status-text">正在生成二维码…</div>
-            <div class="bili-qr-subtext">请打开手机哔哩哔哩客户端扫一扫并确认登录。<br>无需任何浏览器插件，自动写入 cookies.txt，用于下载 1080P 60帧/4K 高清视频。</div>
+            <div id="bili-qr-msg" class="bili-qr-status-text" data-i18n="qrStatusGenerating">正在生成二维码…</div>
+            <div id="bili-qr-subtext" class="bili-qr-subtext" data-i18n="qrModalSubtextBili">请打开手机哔哩哔哩客户端扫一扫并确认登录。<br>无需任何浏览器插件，自动写入 cookies.txt，用于下载 1080P 60帧/4K 高清视频。</div>
           </div>
         </div>
       </div>

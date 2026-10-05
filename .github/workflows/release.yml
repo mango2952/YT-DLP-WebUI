@@ -76,7 +76,7 @@ jobs:
           Remove-Item "get-pip.py" -Force
 
           # Install dependencies
-          & "$stage/python/python.exe" -m pip install flask waitress --no-warn-script-location
+          & "$stage/python/python.exe" -m pip install flask waitress xhshow --no-warn-script-location
 
       - name: Create Portable Zip Package
         shell: pwsh
