@@ -55,7 +55,8 @@ task_queues: dict[str, queue.Queue] = {}   # task_id -> SSE event queue
 tasks_lock = threading.RLock()
 dispatcher_queue: queue.Queue = queue.Queue()
 
-TERMINAL_STATUSES = {"success", "partial", "cancelled", "error"}
+TERMINAL_STATUSES = {"success", "partial", "cancelled", "error", "paused"}
+FINISHED_STATUSES = {"success", "partial", "cancelled", "error"}
 MAX_FINISHED_TASKS = 200
 
 # ── Flask 初始化 ──────────────────────────────────────────────────────────────
@@ -411,7 +412,7 @@ def evict_old_finished_tasks() -> None:
         finished = [
             (tid, t.get("finished_at") or t.get("created_at") or "")
             for tid, t in tasks.items()
-            if t.get("status") in TERMINAL_STATUSES
+            if t.get("status") in FINISHED_STATUSES
         ]
         if len(finished) > MAX_FINISHED_TASKS:
             finished.sort(key=lambda x: x[1])
@@ -638,14 +639,22 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
         tasks[task_id]["queue_position"] = 0
         tasks[task_id]["log_file"] = logger.get_name()
         tasks[task_id]["_logger"] = logger
+        if "done_indices" not in tasks[task_id]:
+            tasks[task_id]["done_indices"] = []
+        if "remaining_urls" not in tasks[task_id]:
+            tasks[task_id]["remaining_urls"] = list(urls)
 
     total_urls = len(urls)
-    completed = 0
+    completed = len(tasks[task_id].get("done_indices", []))
 
     for idx, url in enumerate(urls):
         url = url.strip()
         if not url:
             continue
+
+        with tasks_lock:
+            if tasks[task_id].get("cancelled") or tasks[task_id].get("paused"):
+                break
 
         logger.write_section(f"URL {idx+1}/{total_urls}: {url}")
         send_event(q, "task_info", {
@@ -681,9 +690,9 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                 tasks[task_id]["proc"] = proc
 
             for raw_line in proc.stdout:
-                # 检查是否被取消
+                # 检查是否被取消或暂停
                 with tasks_lock:
-                    if tasks[task_id].get("cancelled"):
+                    if tasks[task_id].get("cancelled") or tasks[task_id].get("paused"):
                         proc.terminate()
                         break
 
@@ -760,7 +769,7 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                     tasks[task_id]["proc"] = proc
                 for raw_line in proc.stdout:
                     with tasks_lock:
-                        if tasks[task_id].get("cancelled"):
+                        if tasks[task_id].get("cancelled") or tasks[task_id].get("paused"):
                             proc.terminate()
                             break
                     logger.write(raw_line)
@@ -792,6 +801,18 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                         send_event(q, "progress", {**parsed, "url_index": idx})
                 proc.wait()
                 ret = proc.returncode
+
+            with tasks_lock:
+                was_paused = tasks[task_id].get("paused", False)
+                was_cancelled = tasks[task_id].get("cancelled", False)
+
+            if was_paused:
+                logger.write(f"[PAUSED] Task paused during URL {idx+1}/{total_urls}: {url}")
+                break
+
+            if was_cancelled:
+                logger.write(f"[CANCELLED] Task cancelled during URL {idx+1}/{total_urls}: {url}")
+                break
 
             # 解析下载配置选项
             dl_video = opts.get("download_video", True)
@@ -879,11 +900,17 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                 "timestamp": datetime.now().isoformat(),
                 "download_path": opts.get("download_path") or cfg.get("download_path"),
                 "log_file": logger.get_name(),
+                "opts": opts,
             }
             append_history(entry)
 
             if ret == 0:
                 completed += 1
+                with tasks_lock:
+                    if idx not in tasks[task_id]["done_indices"]:
+                        tasks[task_id]["done_indices"].append(idx)
+                    done_set = set(tasks[task_id]["done_indices"])
+                    tasks[task_id]["remaining_urls"] = [u for i, u in enumerate(urls) if i not in done_set]
                 logger.write(f"✓ Done: {resolved_file.name if resolved_file else url}")
                 send_event(q, "url_done", {
                     "url": url,
@@ -904,6 +931,11 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                 })
 
         except Exception as e:
+            with tasks_lock:
+                was_paused = tasks[task_id].get("paused", False)
+                was_cancelled = tasks[task_id].get("cancelled", False)
+            if was_paused or was_cancelled:
+                break
             logger.write_error(str(e))
             send_event(q, "url_done", {
                 "url": url, "index": idx, "success": False,
@@ -911,21 +943,38 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                 "log_file": logger.get_name(),
             })
 
-    # 全部完成
-    final_status = "cancelled" if tasks[task_id].get("cancelled") else ("success" if completed == total_urls else "partial")
-    logger.finalize(final_status, completed, total_urls)
-
+    # 全部完成或暂停/取消
     with tasks_lock:
-        tasks[task_id]["status"] = final_status
-        tasks[task_id]["queue_position"] = 0
-        tasks[task_id]["finished_at"] = datetime.now().isoformat()
-        evict_old_finished_tasks()
+        is_paused = tasks[task_id].get("paused", False)
+        is_cancelled = tasks[task_id].get("cancelled", False)
+        if is_paused:
+            final_status = "paused"
+            done_set = set(tasks[task_id].get("done_indices", []))
+            tasks[task_id]["remaining_urls"] = [u for i, u in enumerate(urls) if i not in done_set]
+            tasks[task_id]["status"] = "paused"
+            tasks[task_id]["queue_position"] = 0
+        else:
+            if is_cancelled:
+                final_status = "cancelled"
+            elif completed == total_urls:
+                final_status = "success"
+            elif completed > 0:
+                final_status = "partial"
+            else:
+                final_status = "error"
+            tasks[task_id]["status"] = final_status
+            tasks[task_id]["queue_position"] = 0
+            tasks[task_id]["finished_at"] = datetime.now().isoformat()
+            evict_old_finished_tasks()
+
+    logger.finalize(final_status, completed, total_urls)
 
     send_event(q, "done", {
         "status": final_status,
         "completed": completed,
         "total": total_urls,
         "log_file": logger.get_name(),
+        "remaining_urls": tasks[task_id].get("remaining_urls", []) if is_paused else [],
     })
     # 哨兵：关闭 SSE 流
     try:
@@ -1105,6 +1154,34 @@ def api_info():
         return jsonify({"error": str(e)}), 500
 
 
+def _enqueue_task(urls: list[str], opts: dict, cfg: dict) -> tuple[str, int]:
+    task_id = str(uuid.uuid4())
+    q: queue.Queue = queue.Queue(maxsize=200)
+    q.task_id = task_id
+
+    with tasks_lock:
+        queued_count = sum(1 for t in tasks.values() if t.get("status") == "queued" and not t.get("cancelled"))
+        queue_pos = queued_count + 1
+        tasks[task_id] = {
+            "id": task_id,
+            "urls": urls,
+            "opts": opts,
+            "status": "queued",
+            "queue_position": queue_pos,
+            "created_at": datetime.now().isoformat(),
+            "finished_at": None,
+            "proc": None,
+            "cancelled": False,
+            "paused": False,
+            "done_indices": [],
+            "remaining_urls": list(urls),
+        }
+        task_queues[task_id] = q
+
+    dispatcher_queue.put((task_id, urls, opts, cfg))
+    return task_id, queue_pos
+
+
 # ── 开始下载 ──────────────────────────────────────────────────────────────────
 @app.route("/api/download", methods=["POST"])
 def api_download():
@@ -1119,9 +1196,6 @@ def api_download():
         return jsonify({"error": "请至少输入一个 URL"}), 400
 
     cfg = load_config()
-    task_id = str(uuid.uuid4())
-    q: queue.Queue = queue.Queue(maxsize=200)
-    q.task_id = task_id
 
     dl_video = data.get("download_video")
     dl_audio = data.get("download_audio")
@@ -1150,24 +1224,123 @@ def api_download():
         "playlist_end":       data.get("playlist_end", ""),
     }
 
-    with tasks_lock:
-        queued_count = sum(1 for t in tasks.values() if t.get("status") == "queued" and not t.get("cancelled"))
-        queue_pos = queued_count + 1
-        tasks[task_id] = {
-            "id": task_id,
-            "urls": urls,
-            "status": "queued",
-            "queue_position": queue_pos,
-            "created_at": datetime.now().isoformat(),
-            "finished_at": None,
-            "proc": None,
-            "cancelled": False,
-        }
-        task_queues[task_id] = q
-
-    dispatcher_queue.put((task_id, urls, opts, cfg))
-
+    task_id, queue_pos = _enqueue_task(urls, opts, cfg)
     return jsonify({"task_id": task_id, "url_count": len(urls), "status": "queued", "queue_position": queue_pos})
+
+
+# ── 暂停任务 ──────────────────────────────────────────────────────────────────
+@app.route("/api/pause/<task_id>", methods=["POST"])
+def api_pause(task_id: str):
+    with tasks_lock:
+        task = tasks.get(task_id)
+        if not task:
+            return jsonify({"error": "任务不存在"}), 404
+        if task.get("status") != "running":
+            return jsonify({"error": "只有运行中的任务可以暂停"}), 400
+
+        task["paused"] = True
+        task["status"] = "paused"
+        task["queue_position"] = 0
+        done_set = set(task.get("done_indices", []))
+        urls = task.get("urls", [])
+        task["remaining_urls"] = [u for i, u in enumerate(urls) if i not in done_set]
+
+        proc = task.get("proc")
+        if proc and proc.poll() is None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+
+        q = task_queues.get(task_id)
+        if q:
+            send_event(q, "status", {"status": "paused", "remaining_urls": task["remaining_urls"]})
+
+    return jsonify({
+        "ok": True,
+        "task_id": task_id,
+        "status": "paused",
+        "remaining_urls": task["remaining_urls"],
+    })
+
+
+# ── 恢复任务 ──────────────────────────────────────────────────────────────────
+@app.route("/api/resume/<task_id>", methods=["POST"])
+def api_resume(task_id: str):
+    with tasks_lock:
+        task = tasks.get(task_id)
+        if not task:
+            return jsonify({"error": "任务不存在"}), 404
+        if task.get("status") != "paused":
+            return jsonify({"error": "只有已暂停的任务可以恢复"}), 400
+
+        remaining_urls = task.get("remaining_urls")
+        if remaining_urls is None:
+            done_set = set(task.get("done_indices", []))
+            remaining_urls = [u for i, u in enumerate(task.get("urls", [])) if i not in done_set]
+            task["remaining_urls"] = remaining_urls
+
+        if not remaining_urls:
+            return jsonify({"error": "没有未完成的链接可供恢复"}), 400
+
+        # 将旧的已暂停任务标记为 cancelled 并设置 finished_at，防止重复恢复并允许将来清理
+        task["status"] = "cancelled"
+        task["cancelled"] = True
+        task["finished_at"] = datetime.now().isoformat()
+        opts = (task.get("opts") or {}).copy()
+
+    cfg = load_config()
+    new_task_id, queue_pos = _enqueue_task(remaining_urls, opts, cfg)
+
+    return jsonify({
+        "task_id": new_task_id,
+        "status": "queued",
+        "queue_position": queue_pos,
+        "url_count": len(remaining_urls),
+        "resumed_from": task_id,
+    })
+
+
+# ── 重试失败任务 ──────────────────────────────────────────────────────────────
+@app.route("/api/retry/<task_id>", methods=["POST"])
+def api_retry(task_id: str):
+    with tasks_lock:
+        task = tasks.get(task_id)
+        if not task:
+            # 兼容从历史记录重试
+            history = load_history()
+            matching = [h for h in history if h.get("task_id") == task_id or h.get("id") == task_id]
+            if not matching:
+                return jsonify({"error": "任务不存在"}), 404
+            if not any(h.get("status") in ("error", "partial") for h in matching):
+                return jsonify({"error": "任务状态不可重试，仅支持重试失败或部分失败的任务"}), 400
+            urls = []
+            seen = set()
+            for h in matching:
+                u = h.get("url")
+                if u and u not in seen:
+                    seen.add(u)
+                    urls.append(u)
+            opts = (matching[0].get("opts") or {}).copy()
+        else:
+            if task.get("status") not in ("error", "partial"):
+                return jsonify({"error": "任务状态不可重试，仅支持重试失败或部分失败的任务"}), 400
+            urls = list(task.get("urls", []))
+            opts = (task.get("opts") or {}).copy()
+
+    if not urls:
+        return jsonify({"error": "没有可重试的链接"}), 400
+
+    cfg = load_config()
+    new_task_id, queue_pos = _enqueue_task(urls, opts, cfg)
+
+    return jsonify({
+        "task_id": new_task_id,
+        "status": "queued",
+        "queue_position": queue_pos,
+        "url_count": len(urls),
+        "retried_from": task_id,
+    })
 
 
 # ── SSE 进度流 ────────────────────────────────────────────────────────────────
@@ -1212,7 +1385,7 @@ def api_stop(task_id: str):
         proc = task.get("proc")
         if proc and proc.poll() is None:
             proc.terminate()
-        elif task.get("status") == "queued":
+        elif task.get("status") in ("queued", "paused"):
             task["status"] = "cancelled"
             task["queue_position"] = 0
             task["finished_at"] = datetime.now().isoformat()
@@ -1221,7 +1394,7 @@ def api_stop(task_id: str):
             if q:
                 send_event(q, "done", {
                     "status": "cancelled",
-                    "completed": 0,
+                    "completed": len(task.get("done_indices", [])),
                     "total": len(task.get("urls", [])),
                     "log_file": "",
                 })
