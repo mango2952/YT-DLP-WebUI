@@ -1786,9 +1786,9 @@ async function loadVersion() {
     const data = await res.json();
     const badge = document.getElementById('version-badge');
     if (badge) {
-      badge.title = `YT-DLP WebUI v${data.app || '1.3.1'} | yt-dlp ${data.yt_dlp} | ffmpeg ${data.ffmpeg}`;
+      badge.title = `YT-DLP WebUI v${data.app || '1.3.2'} | yt-dlp ${data.yt_dlp} | ffmpeg ${data.ffmpeg}`;
     }
-    document.getElementById('version-text').textContent = `v${data.app || '1.3.1'}`;
+    document.getElementById('version-text').textContent = `v${data.app || '1.3.2'}`;
   } catch (e) { /* ignore */ }
 }
 
