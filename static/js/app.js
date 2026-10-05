@@ -414,19 +414,22 @@ function updateContentToggleStates() {
   const chkAudio = document.getElementById('chk-audio');
   const chkSub   = document.getElementById('chk-subtitle');
 
-  if (chkThumb) document.getElementById('ct-thumbnail')?.classList.toggle('active', chkThumb.checked);
+  if (chkThumb) {
+    document.getElementById('ct-thumbnail')?.classList.toggle('active', chkThumb.checked);
+    document.getElementById('embed-thumb-group')?.classList.toggle('opt-disabled', !chkThumb.checked);
+  }
   if (chkVideo) {
     document.getElementById('ct-video')?.classList.toggle('active', chkVideo.checked);
-    document.getElementById('quality-group')?.classList.toggle('hidden', !chkVideo.checked);
-    document.getElementById('video-format-group')?.classList.toggle('hidden', !chkVideo.checked);
+    document.getElementById('quality-group')?.classList.toggle('opt-disabled', !chkVideo.checked);
+    document.getElementById('video-format-group')?.classList.toggle('opt-disabled', !chkVideo.checked);
   }
   if (chkAudio) {
     document.getElementById('ct-audio')?.classList.toggle('active', chkAudio.checked);
-    document.getElementById('audio-format-group')?.classList.toggle('hidden', !chkAudio.checked);
+    document.getElementById('audio-format-group')?.classList.toggle('opt-disabled', !chkAudio.checked);
   }
   if (chkSub) {
     document.getElementById('ct-subtitle')?.classList.toggle('active', chkSub.checked);
-    document.getElementById('subtitle-options-group')?.classList.toggle('hidden', !chkSub.checked);
+    document.getElementById('subtitle-options-group')?.classList.toggle('opt-disabled', !chkSub.checked);
   }
 }
 

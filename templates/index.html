@@ -147,8 +147,8 @@
             </select>
           </div>
 
-          <!-- 音频格式（仅音频模式显示） -->
-          <div class="opt-group hidden" id="audio-format-group">
+          <!-- 音频格式 -->
+          <div class="opt-group" id="audio-format-group">
             <label class="opt-label" data-i18n="optAudioFmt">音频格式</label>
             <select id="audio-format-select" class="opt-select">
               <option value="mp3">MP3</option>
@@ -159,8 +159,8 @@
             </select>
           </div>
 
-          <!-- 字幕选项（勾选字幕后显示） -->
-          <div class="opt-group hidden" id="subtitle-options-group">
+          <!-- 字幕选项 -->
+          <div class="opt-group" id="subtitle-options-group">
             <label class="opt-label" data-i18n="optSubtitleLang">字幕语言</label>
             <div class="toggle-row">
               <input type="text" id="subtitle-langs" class="opt-input-sm" value="zh-Hans,zh,en" placeholder="zh-Hans,en" />
@@ -189,6 +189,16 @@
             </div>
           </div>
 
+          <!-- 播放列表范围 -->
+          <div class="opt-group" id="playlist-group">
+            <label class="opt-label" data-i18n="optPlaylist">播放列表范围</label>
+            <div class="range-row">
+              <input type="number" id="pl-start" class="opt-input-sm" placeholder="起始" min="1" />
+              <span>—</span>
+              <input type="number" id="pl-end" class="opt-input-sm" placeholder="结束" min="1" />
+            </div>
+          </div>
+
           <!-- 封面内嵌 -->
           <div class="opt-group" id="embed-thumb-group">
             <label class="opt-label" data-i18n="optEmbedThumbLabel">封面内嵌</label>
@@ -210,16 +220,6 @@
                 <span class="toggle-track-sm"></span>
                 <span data-i18n="optEmbedMeta">内嵌元数据</span>
               </label>
-            </div>
-          </div>
-
-          <!-- 播放列表范围 -->
-          <div class="opt-group" id="playlist-group">
-            <label class="opt-label" data-i18n="optPlaylist">播放列表范围</label>
-            <div class="range-row">
-              <input type="number" id="pl-start" class="opt-input-sm" placeholder="起始" min="1" />
-              <span>—</span>
-              <input type="number" id="pl-end" class="opt-input-sm" placeholder="结束" min="1" />
             </div>
           </div>
 

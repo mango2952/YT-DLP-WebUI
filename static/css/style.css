@@ -505,6 +505,10 @@ body {
 }
 
 .opt-group { display: flex; flex-direction: column; gap: 8px; }
+.opt-group.opt-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
 
 .opt-label {
   font-size: 12px;

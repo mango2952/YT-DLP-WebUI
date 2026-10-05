@@ -491,7 +491,7 @@ def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
     # 封面 / 缩略图
     if dl_thumb:
         cmd += ["--write-thumbnail", "--convert-thumbnails", "jpg"]
-    if dl_video and (opts.get("embed_thumbnail") or cfg.get("embed_thumbnail")):
+    if dl_thumb and dl_video and (opts.get("embed_thumbnail") or cfg.get("embed_thumbnail")):
         cmd += ["--embed-thumbnail"]
 
     # 格式选择（视频 / 音频）
