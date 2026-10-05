@@ -164,10 +164,15 @@
             <label class="opt-label" data-i18n="optSubtitleLang">字幕语言</label>
             <div class="toggle-row">
               <input type="text" id="subtitle-langs" class="opt-input-sm" value="zh-Hans,zh,en" placeholder="zh-Hans,en" />
-              <label class="toggle-mini">
+              <label class="toggle-mini" title="将字幕内嵌到视频文件中" data-i18n-title="optEmbedSubTitle">
                 <input type="checkbox" id="chk-embed-sub" />
                 <span class="toggle-track-sm"></span>
                 <span data-i18n="optEmbedSub">嵌入视频</span>
+              </label>
+              <label class="toggle-mini" title="下载平台 AI 自动生成的字幕（如 YouTube 自动字幕），无官方字幕时应急用" data-i18n-title="optAutoSubTitle">
+                <input type="checkbox" id="chk-auto-sub" />
+                <span class="toggle-track-sm"></span>
+                <span data-i18n="optAutoSub">自动生成字幕</span>
               </label>
             </div>
           </div>
@@ -180,6 +185,30 @@
                 <input type="checkbox" id="chk-turbo" />
                 <span class="toggle-track-sm"></span>
                 <span data-i18n="optTurbo">⚡ 极速模式</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 封面内嵌 -->
+          <div class="opt-group" id="embed-thumb-group">
+            <label class="opt-label" data-i18n="optEmbedThumbLabel">封面内嵌</label>
+            <div class="toggle-row" style="min-height: 38px; display: flex; align-items: center;">
+              <label class="toggle-mini" title="把封面图片内嵌为视频封面" data-i18n-title="optEmbedThumbTitle">
+                <input type="checkbox" id="chk-embed-thumb" />
+                <span class="toggle-track-sm"></span>
+                <span data-i18n="optEmbedThumb">内嵌封面</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 元数据内嵌 -->
+          <div class="opt-group" id="embed-meta-group">
+            <label class="opt-label" data-i18n="optEmbedMetaLabel">元数据内嵌</label>
+            <div class="toggle-row" style="min-height: 38px; display: flex; align-items: center;">
+              <label class="toggle-mini" title="把标题/作者/日期等元数据写入文件属性" data-i18n-title="optEmbedMetaTitle">
+                <input type="checkbox" id="chk-embed-meta" />
+                <span class="toggle-track-sm"></span>
+                <span data-i18n="optEmbedMeta">内嵌元数据</span>
               </label>
             </div>
           </div>

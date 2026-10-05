@@ -32,9 +32,18 @@ const I18N = {
     optSubtitle: '字幕',
     optSubtitleLang: '字幕语言',
     optEmbedSub: '嵌入视频',
+    optEmbedSubTitle: '将字幕内嵌到视频文件中',
+    optAutoSub: '自动生成字幕',
+    optAutoSubTitle: '下载平台 AI 自动生成的字幕（如 YouTube 自动字幕），无官方字幕时应急用',
     optTurbo: '⚡ 极速模式',
     optTurboLabel: '下载加速',
     optTurboTitle: '多线程并行下载视频分片，下载更快；仅对 HLS/DASH 等分片流有效',
+    optEmbedThumb: '内嵌封面',
+    optEmbedThumbLabel: '封面内嵌',
+    optEmbedThumbTitle: '把封面图片内嵌为视频封面',
+    optEmbedMeta: '内嵌元数据',
+    optEmbedMetaLabel: '元数据内嵌',
+    optEmbedMetaTitle: '把标题/作者/日期等元数据写入文件属性',
     optPlaylist: '播放列表范围',
     btnDownload: '开始下载',
     historyTitle: '下载历史',
@@ -183,9 +192,18 @@ const I18N = {
     optSubtitle: 'Subtitles',
     optSubtitleLang: 'Subtitle Language',
     optEmbedSub: 'Embed',
+    optEmbedSubTitle: 'Embed subtitle tracks into the video file',
+    optAutoSub: 'Auto-generated subs',
+    optAutoSubTitle: 'Download platform AI auto-generated subtitles (e.g. YouTube auto captions) as fallback when official subtitles are unavailable',
     optTurbo: '⚡ Turbo mode',
     optTurboLabel: 'Acceleration',
     optTurboTitle: 'Multi-threaded parallel download of video fragments for faster speed; only effective for segmented streams (HLS/DASH)',
+    optEmbedThumb: 'Embed Thumbnail',
+    optEmbedThumbLabel: 'Thumbnail Embed',
+    optEmbedThumbTitle: 'Embed thumbnail into the video file as cover art',
+    optEmbedMeta: 'Embed Metadata',
+    optEmbedMetaLabel: 'Metadata Embed',
+    optEmbedMetaTitle: 'Write title, artist, date and other metadata into file properties',
     optPlaylist: 'Playlist Range',
     btnDownload: 'Start Download',
     historyTitle: 'Download History',
@@ -874,6 +892,9 @@ async function startDownload() {
     subtitle_langs: document.getElementById('subtitle-langs')?.value || 'zh-Hans,zh,en',
     embed_subtitles: document.getElementById('chk-embed-sub')?.checked || false,
     turbo_mode: document.getElementById('chk-turbo')?.checked || false,
+    embed_thumbnail: document.getElementById('chk-embed-thumb')?.checked || false,
+    embed_metadata: document.getElementById('chk-embed-meta')?.checked || false,
+    write_auto_subs: document.getElementById('chk-auto-sub')?.checked || false,
     playlist_start: document.getElementById('pl-start')?.value || '',
     playlist_end:   document.getElementById('pl-end')?.value || '',
     cookie_mode: cookieModeSelect ? cookieModeSelect.value : 'file',
@@ -1635,6 +1656,22 @@ async function loadSettings() {
     if (chkTurbo && cfg.turbo_mode !== undefined) {
       chkTurbo.checked = Boolean(cfg.turbo_mode);
     }
+    const chkEmbedThumb = document.getElementById('chk-embed-thumb');
+    if (chkEmbedThumb && cfg.embed_thumbnail !== undefined) {
+      chkEmbedThumb.checked = Boolean(cfg.embed_thumbnail);
+    }
+    const chkEmbedMeta = document.getElementById('chk-embed-meta');
+    if (chkEmbedMeta && cfg.embed_metadata !== undefined) {
+      chkEmbedMeta.checked = Boolean(cfg.embed_metadata);
+    }
+    const chkAutoSub = document.getElementById('chk-auto-sub');
+    if (chkAutoSub && cfg.write_auto_subs !== undefined) {
+      chkAutoSub.checked = Boolean(cfg.write_auto_subs);
+    }
+    const chkEmbedSub = document.getElementById('chk-embed-sub');
+    if (chkEmbedSub && cfg.embed_subtitles !== undefined) {
+      chkEmbedSub.checked = Boolean(cfg.embed_subtitles);
+    }
     refreshCookieStatus();
   } catch (e) {
     console.error(e);
@@ -1646,14 +1683,18 @@ async function saveSettings() {
   const browserNameSelect = document.getElementById('cfg-browser-name');
 
   const cfg = {
-    download_path:  document.getElementById('cfg-path').value.trim(),
-    max_concurrent: parseInt(document.getElementById('cfg-concurrent').value) || 3,
-    speed_limit:    document.getElementById('cfg-speed').value.trim(),
-    proxy:          document.getElementById('cfg-proxy').value.trim(),
-    cookie_mode:    cookieModeSelect ? cookieModeSelect.value : 'file',
-    browser_name:   browserNameSelect ? browserNameSelect.value : 'chrome',
-    language:       currentLang,
-    turbo_mode:     document.getElementById('chk-turbo')?.checked || false,
+    download_path:   document.getElementById('cfg-path').value.trim(),
+    max_concurrent:  parseInt(document.getElementById('cfg-concurrent').value) || 3,
+    speed_limit:     document.getElementById('cfg-speed').value.trim(),
+    proxy:           document.getElementById('cfg-proxy').value.trim(),
+    cookie_mode:     cookieModeSelect ? cookieModeSelect.value : 'file',
+    browser_name:    browserNameSelect ? browserNameSelect.value : 'chrome',
+    language:        currentLang,
+    turbo_mode:      document.getElementById('chk-turbo')?.checked || false,
+    embed_thumbnail: document.getElementById('chk-embed-thumb')?.checked || false,
+    embed_metadata:  document.getElementById('chk-embed-meta')?.checked || false,
+    write_auto_subs: document.getElementById('chk-auto-sub')?.checked || false,
+    embed_subtitles: document.getElementById('chk-embed-sub')?.checked || false,
   };
   await fetch('/api/config', {
     method: 'POST',

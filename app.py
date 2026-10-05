@@ -55,6 +55,9 @@ DEFAULT_CONFIG = {
     "embed_subtitles": False,
     "write_subtitles": True,
     "turbo_mode": False,
+    "embed_thumbnail": False,
+    "embed_metadata": False,
+    "write_auto_subs": False,
 }
 
 # ── 全局状态 ──────────────────────────────────────────────────────────────────
@@ -488,6 +491,8 @@ def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
     # 封面 / 缩略图
     if dl_thumb:
         cmd += ["--write-thumbnail", "--convert-thumbnails", "jpg"]
+    if dl_video and (opts.get("embed_thumbnail") or cfg.get("embed_thumbnail")):
+        cmd += ["--embed-thumbnail"]
 
     # 格式选择（视频 / 音频）
     custom_video_id = None
@@ -586,15 +591,22 @@ def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
             cmd += ["--skip-download"]
 
     # 字幕
-    if dl_subs:
+    want_subs = dl_subs or opts.get("write_auto_subs") or cfg.get("write_auto_subs", False)
+    if want_subs:
         sub_langs = opts.get("subtitle_langs") or cfg.get("subtitle_langs", "zh-Hans,zh,en")
         cmd += [
             "--write-subs",
             "--sub-langs", sub_langs,
             "--convert-subs", "srt",
         ]
+        if opts.get("write_auto_subs") or cfg.get("write_auto_subs", False):
+            cmd += ["--write-auto-subs"]
         if dl_video and (opts.get("embed_subtitles") or cfg.get("embed_subtitles")):
             cmd += ["--embed-subs"]
+
+    # 元数据内嵌
+    if dl_video and (opts.get("embed_metadata") or cfg.get("embed_metadata")):
+        cmd += ["--embed-metadata"]
 
     # 播放列表范围
     playlist_start = opts.get("playlist_start", "")
@@ -1591,8 +1603,11 @@ def api_download():
         "browser_name":       data.get("browser_name") or cfg.get("browser_name", "chrome"),
         "cookie_file":        data.get("cookie_file") or cfg.get("cookie_file", "cookies.txt"),
         "subtitle_langs":     data.get("subtitle_langs") or cfg.get("subtitle_langs"),
-        "embed_subtitles":    data.get("embed_subtitles", False),
+        "embed_subtitles":    bool(data.get("embed_subtitles", False)),
         "turbo_mode":         bool(data.get("turbo_mode", False)),
+        "embed_thumbnail":    bool(data.get("embed_thumbnail", False)),
+        "embed_metadata":     bool(data.get("embed_metadata", False)),
+        "write_auto_subs":    bool(data.get("write_auto_subs", False)),
         "playlist_start":     data.get("playlist_start", ""),
         "playlist_end":       data.get("playlist_end", ""),
         "formats":            formats,
@@ -1840,8 +1855,9 @@ def api_config_set():
     for k, v in data.items():
         if k in allowed:
             cfg[k] = v
-    if "turbo_mode" in data:
-        cfg["turbo_mode"] = bool(data.get("turbo_mode", False))
+    for bool_key in ("turbo_mode", "embed_subtitles", "embed_thumbnail", "embed_metadata", "write_auto_subs"):
+        if bool_key in data:
+            cfg[bool_key] = bool(data.get(bool_key, False))
     save_config(cfg)
     try:
         download_semaphore.set_limit(int(cfg.get("max_concurrent", 3)))

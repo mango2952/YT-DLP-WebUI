@@ -11,5 +11,8 @@
   "subtitle_langs": "zh-Hans,zh,en",
   "embed_subtitles": false,
   "write_subtitles": true,
-  "turbo_mode": false
+  "turbo_mode": false,
+  "embed_thumbnail": false,
+  "embed_metadata": false,
+  "write_auto_subs": false
 }
