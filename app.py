@@ -52,7 +52,11 @@ DEFAULT_CONFIG = {
 # ── 全局状态 ──────────────────────────────────────────────────────────────────
 tasks: dict[str, dict] = {}          # task_id -> task info
 task_queues: dict[str, queue.Queue] = {}   # task_id -> SSE event queue
-tasks_lock = threading.Lock()
+tasks_lock = threading.RLock()
+dispatcher_queue: queue.Queue = queue.Queue()
+
+TERMINAL_STATUSES = {"success", "partial", "cancelled", "error"}
+MAX_FINISHED_TASKS = 200
 
 # ── Flask 初始化 ──────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -328,6 +332,95 @@ def append_history(entry: dict) -> None:
     save_history(history)
 
 
+class ResizableSemaphore:
+    """基于 threading.Semaphore 的可调容量信号量，支持按 live config 动态调整并发数"""
+
+    def __init__(self, value: int = 3):
+        self.limit = max(1, int(value))
+        self.sem = threading.Semaphore(self.limit)
+        self.deficit = 0
+        self.lock = threading.Lock()
+
+    def sync_limit(self) -> None:
+        try:
+            cfg = load_config()
+            new_limit = int(cfg.get("max_concurrent", 3))
+        except Exception:
+            new_limit = 3
+        self.set_limit(new_limit)
+
+    def set_limit(self, new_limit: int) -> None:
+        new_limit = max(1, int(new_limit))
+        with self.lock:
+            diff = new_limit - self.limit
+            self.limit = new_limit
+            if diff > 0:
+                recovered = min(diff, self.deficit)
+                self.deficit -= recovered
+                diff -= recovered
+                for _ in range(diff):
+                    self.sem.release()
+            elif diff < 0:
+                to_reduce = -diff
+                for _ in range(to_reduce):
+                    if self.sem.acquire(blocking=False):
+                        pass
+                    else:
+                        self.deficit += 1
+
+    def acquire(self, blocking: bool = True, timeout: float | None = None) -> bool:
+        return self.sem.acquire(blocking=blocking, timeout=timeout)
+
+    def release(self) -> None:
+        with self.lock:
+            if self.deficit > 0:
+                self.deficit -= 1
+            else:
+                self.sem.release()
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.release()
+
+
+download_semaphore = ResizableSemaphore(int(DEFAULT_CONFIG.get("max_concurrent", 3)))
+
+
+def recompute_queue_positions() -> None:
+    """重新计算排队中任务的队列位置，并在非排队任务上清除位置"""
+    with tasks_lock:
+        queued = [
+            t for t in tasks.values()
+            if t.get("status") == "queued" and not t.get("cancelled")
+        ]
+        queued.sort(key=lambda t: t.get("created_at") or "")
+        for idx, t in enumerate(queued, start=1):
+            t["queue_position"] = idx
+
+        for t in tasks.values():
+            if t.get("status") != "queued":
+                t["queue_position"] = 0
+
+
+def evict_old_finished_tasks() -> None:
+    """最多保留 200 个已完成任务，按 finished_at 从旧到新淘汰"""
+    with tasks_lock:
+        finished = [
+            (tid, t.get("finished_at") or t.get("created_at") or "")
+            for tid, t in tasks.items()
+            if t.get("status") in TERMINAL_STATUSES
+        ]
+        if len(finished) > MAX_FINISHED_TASKS:
+            finished.sort(key=lambda x: x[1])
+            excess = len(finished) - MAX_FINISHED_TASKS
+            for tid, _ in finished[:excess]:
+                tasks.pop(tid, None)
+                task_queues.pop(tid, None)
+
+
 def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
     """构建 yt-dlp 命令行"""
     download_path = opts.get("download_path") or cfg.get("download_path", str(DOWNLOADS_DIR))
@@ -440,8 +533,51 @@ def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
     return cmd
 
 
-def send_event(q: queue.Queue, event_type: str, data: dict) -> None:
-    q.put({"event": event_type, "data": data})
+def send_event(q: queue.Queue, event_type: str, data: dict, task_id: str | None = None, logger: TaskLogger | None = None) -> None:
+    item = {"event": event_type, "data": data}
+    try:
+        q.put_nowait(item)
+    except queue.Full:
+        try:
+            q.get_nowait()
+        except queue.Empty:
+            pass
+        try:
+            q.put_nowait(item)
+        except queue.Full:
+            pass
+
+        tid = task_id or getattr(q, "task_id", None)
+        if not tid:
+            with tasks_lock:
+                for k, v in task_queues.items():
+                    if v is q:
+                        tid = k
+                        break
+
+        if tid:
+            should_warn = False
+            task_logger = logger
+            with tasks_lock:
+                task = tasks.get(tid)
+                if task and not task.get("queue_full_warned"):
+                    task["queue_full_warned"] = True
+                    should_warn = True
+                    if not task_logger:
+                        task_logger = task.get("_logger")
+                    log_file = task.get("log_file")
+            if should_warn:
+                msg = "[WARNING] SSE event queue full (client slow or disconnected); dropping oldest events."
+                if task_logger:
+                    task_logger.write(msg)
+                elif log_file:
+                    try:
+                        p = LOGS_DIR / log_file
+                        with open(p, "a", encoding="utf-8") as f:
+                            ts = datetime.now().strftime("%H:%M:%S")
+                            f.write(f"[{ts}] {msg}\n")
+                    except Exception:
+                        pass
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -492,12 +628,16 @@ def parse_progress_line(line: str) -> dict | None:
 
 
 def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> None:
-    q = task_queues[task_id]
+    q = task_queues.get(task_id)
+    if not q:
+        return
     logger = TaskLogger(task_id, urls, opts)
 
     with tasks_lock:
         tasks[task_id]["status"] = "running"
+        tasks[task_id]["queue_position"] = 0
         tasks[task_id]["log_file"] = logger.get_name()
+        tasks[task_id]["_logger"] = logger
 
     total_urls = len(urls)
     completed = 0
@@ -777,6 +917,9 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
 
     with tasks_lock:
         tasks[task_id]["status"] = final_status
+        tasks[task_id]["queue_position"] = 0
+        tasks[task_id]["finished_at"] = datetime.now().isoformat()
+        evict_old_finished_tasks()
 
     send_event(q, "done", {
         "status": final_status,
@@ -785,7 +928,104 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
         "log_file": logger.get_name(),
     })
     # 哨兵：关闭 SSE 流
-    q.put(None)
+    try:
+        q.put_nowait(None)
+    except queue.Full:
+        try:
+            q.get_nowait()
+        except queue.Empty:
+            pass
+        try:
+            q.put_nowait(None)
+        except queue.Full:
+            pass
+
+
+def _worker_runner(task_id: str, urls: list[str], opts: dict, cfg: dict) -> None:
+    try:
+        download_worker(task_id, urls, opts, cfg)
+    except Exception as e:
+        with tasks_lock:
+            task = tasks.get(task_id)
+            if task and task.get("status") not in TERMINAL_STATUSES:
+                task["status"] = "error"
+                task["queue_position"] = 0
+                task["finished_at"] = datetime.now().isoformat()
+                evict_old_finished_tasks()
+        q = task_queues.get(task_id)
+        if q:
+            send_event(q, "done", {
+                "status": "error",
+                "completed": 0,
+                "total": len(urls),
+                "log_file": tasks.get(task_id, {}).get("log_file", ""),
+            })
+            try:
+                q.put_nowait(None)
+            except queue.Full:
+                try:
+                    q.get_nowait()
+                except queue.Empty:
+                    pass
+                try:
+                    q.put_nowait(None)
+                except queue.Full:
+                    pass
+    finally:
+        download_semaphore.release()
+        recompute_queue_positions()
+
+
+def dispatcher_loop() -> None:
+    while True:
+        try:
+            item = dispatcher_queue.get()
+            if item is None:
+                break
+            task_id, urls, opts, cfg = item
+
+            # 检查任务是否在排队期间已被取消或提前终止
+            with tasks_lock:
+                task = tasks.get(task_id)
+                if not task or task.get("cancelled") or task.get("status") in TERMINAL_STATUSES:
+                    recompute_queue_positions()
+                    continue
+
+            # 读取最新配置并等待并发许可
+            download_semaphore.sync_limit()
+            download_semaphore.acquire()
+
+            # 获取许可后再次检查任务状态
+            with tasks_lock:
+                task = tasks.get(task_id)
+                if not task or task.get("cancelled") or task.get("status") in TERMINAL_STATUSES:
+                    download_semaphore.release()
+                    recompute_queue_positions()
+                    continue
+
+                task["status"] = "running"
+                task["queue_position"] = 0
+                recompute_queue_positions()
+
+            # 任务由 queued 状态转移为 running，发送 SSE 状态事件
+            q = task_queues.get(task_id)
+            if q:
+                send_event(q, "status", {"status": "running"})
+
+            # 启动下载工作线程
+            t = threading.Thread(
+                target=_worker_runner,
+                args=(task_id, urls, opts, cfg),
+                daemon=True,
+                name=f"worker-{task_id[:8]}"
+            )
+            t.start()
+        except Exception:
+            time.sleep(0.5)
+
+
+dispatcher_thread = threading.Thread(target=dispatcher_loop, daemon=True, name="download-dispatcher")
+dispatcher_thread.start()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -881,17 +1121,7 @@ def api_download():
     cfg = load_config()
     task_id = str(uuid.uuid4())
     q: queue.Queue = queue.Queue(maxsize=200)
-
-    with tasks_lock:
-        tasks[task_id] = {
-            "id": task_id,
-            "urls": urls,
-            "status": "pending",
-            "created_at": datetime.now().isoformat(),
-            "proc": None,
-            "cancelled": False,
-        }
-        task_queues[task_id] = q
+    q.task_id = task_id
 
     dl_video = data.get("download_video")
     dl_audio = data.get("download_audio")
@@ -920,10 +1150,24 @@ def api_download():
         "playlist_end":       data.get("playlist_end", ""),
     }
 
-    t = threading.Thread(target=download_worker, args=(task_id, urls, opts, cfg), daemon=True)
-    t.start()
+    with tasks_lock:
+        queued_count = sum(1 for t in tasks.values() if t.get("status") == "queued" and not t.get("cancelled"))
+        queue_pos = queued_count + 1
+        tasks[task_id] = {
+            "id": task_id,
+            "urls": urls,
+            "status": "queued",
+            "queue_position": queue_pos,
+            "created_at": datetime.now().isoformat(),
+            "finished_at": None,
+            "proc": None,
+            "cancelled": False,
+        }
+        task_queues[task_id] = q
 
-    return jsonify({"task_id": task_id, "url_count": len(urls)})
+    dispatcher_queue.put((task_id, urls, opts, cfg))
+
+    return jsonify({"task_id": task_id, "url_count": len(urls), "status": "queued", "queue_position": queue_pos})
 
 
 # ── SSE 进度流 ────────────────────────────────────────────────────────────────
@@ -968,6 +1212,31 @@ def api_stop(task_id: str):
         proc = task.get("proc")
         if proc and proc.poll() is None:
             proc.terminate()
+        elif task.get("status") == "queued":
+            task["status"] = "cancelled"
+            task["queue_position"] = 0
+            task["finished_at"] = datetime.now().isoformat()
+            recompute_queue_positions()
+            q = task_queues.get(task_id)
+            if q:
+                send_event(q, "done", {
+                    "status": "cancelled",
+                    "completed": 0,
+                    "total": len(task.get("urls", [])),
+                    "log_file": "",
+                })
+                try:
+                    q.put_nowait(None)
+                except queue.Full:
+                    try:
+                        q.get_nowait()
+                    except queue.Empty:
+                        pass
+                    try:
+                        q.put_nowait(None)
+                    except queue.Full:
+                        pass
+            evict_old_finished_tasks()
     return jsonify({"ok": True})
 
 
@@ -1021,6 +1290,10 @@ def api_config_set():
         if k in allowed:
             cfg[k] = v
     save_config(cfg)
+    try:
+        download_semaphore.set_limit(int(cfg.get("max_concurrent", 3)))
+    except Exception:
+        pass
     return jsonify({"ok": True})
 
 
@@ -1047,8 +1320,9 @@ def api_update_ytdlp():
 @app.route("/api/tasks", methods=["GET"])
 def api_tasks():
     with tasks_lock:
+        recompute_queue_positions()
         safe = {
-            tid: {k: v for k, v in t.items() if k != "proc"}
+            tid: {k: v for k, v in t.items() if not k.startswith("_") and k != "proc"}
             for tid, t in tasks.items()
         }
     return jsonify(safe)
