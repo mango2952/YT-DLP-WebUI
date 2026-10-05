@@ -61,13 +61,6 @@
                 placeholder="粘贴视频或播放列表链接…"
                 spellcheck="false"
               />
-              <button type="button" class="btn btn-secondary btn-sm format-picker-btn" title="选择格式">
-                <span class="picker-spinner hidden">⏳</span>
-                <span class="picker-text">🎛️ 格式</span>
-              </button>
-              <select class="format-picker-select hidden" title="选择格式">
-                <option value="">默认 (全局设置)</option>
-              </select>
               <button type="button" class="btn btn-ghost btn-sm btn-remove-row hidden" title="删除行">✕</button>
             </div>
           </div>
@@ -201,6 +194,21 @@
                 📋 读剪贴板
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- 高级模式：逐链接指定来源格式（默认收起） -->
+        <div class="advanced-section">
+          <button type="button" id="btn-advanced-toggle" class="advanced-toggle">
+            <span data-i18n="advTitle">⚙️ 高级：逐链接指定来源格式</span>
+            <span class="adv-arrow">▸</span>
+          </button>
+          <div id="advanced-panel" class="advanced-panel hidden">
+            <p class="advanced-hint" data-i18n="advHint">为每个链接单独指定视频来源格式（精确到 yt-dlp 格式编号），会覆盖上方的"质量"设置；不选则使用全局设置。</p>
+            <div id="advanced-format-rows"></div>
+            <button type="button" id="btn-fetch-all-formats" class="btn btn-secondary btn-sm">
+              <span data-i18n="advFetchAll">🔍 获取全部链接的格式</span>
+            </button>
           </div>
         </div>
 

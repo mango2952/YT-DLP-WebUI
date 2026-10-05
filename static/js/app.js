@@ -123,6 +123,12 @@ const I18N = {
     fmtGroupVideo: '视频',
     fmtGroupAudio: '纯音频',
     fmtLoading: ' 获取中…',
+    advTitle: '⚙️ 高级：逐链接指定来源格式',
+    advHint: '为每个链接单独指定视频来源格式（精确到 yt-dlp 格式编号），会覆盖上方的"质量"设置；不选则使用全局设置。',
+    advFetchAll: '🔍 获取全部链接的格式',
+    advNoUrl: '请先在上方输入链接',
+    advNoFormats: '未检测到可用格式',
+    advFetchFailed: '获取失败',
   },
   en: {
     appName: 'YT-DLP WebUI',
@@ -238,6 +244,12 @@ const I18N = {
     fmtGroupVideo: 'Video',
     fmtGroupAudio: 'Audio only',
     fmtLoading: ' Loading…',
+    advTitle: '⚙️ Advanced: per-URL source format',
+    advHint: 'Set a specific source format per URL (exact yt-dlp format ID); overrides the Quality setting above. Leave unset to use global settings.',
+    advFetchAll: '🔍 Fetch formats for all URLs',
+    advNoUrl: 'Enter URLs above first',
+    advNoFormats: 'No formats detected',
+    advFetchFailed: 'Fetch failed',
   },
 };
 
@@ -400,12 +412,7 @@ function updateRemoveButtonsVisibility() {
 
 function bindUrlRowEvents(row) {
   const input = row.querySelector('.url-row-input');
-  const btnPicker = row.querySelector('.format-picker-btn');
   const btnRemove = row.querySelector('.btn-remove-row');
-
-  if (btnPicker) {
-    btnPicker.onclick = () => onFormatPickerClick(row);
-  }
 
   if (btnRemove) {
     btnRemove.onclick = () => {
@@ -457,13 +464,6 @@ function addUrlRow(initialUrl = '') {
       spellcheck="false"
       value="${initialUrl ? initialUrl.replace(/"/g, '&quot;') : ''}"
     />
-    <button type="button" class="btn btn-secondary btn-sm format-picker-btn" data-i18n-title="fmtPickerTitle" title="${t('fmtPickerTitle')}">
-      <span class="picker-spinner hidden">⏳</span>
-      <span class="picker-text" data-i18n="fmtPickerBtn">${t('fmtPickerBtn')}</span>
-    </button>
-    <select class="format-picker-select hidden" data-i18n-title="fmtPickerTitle" title="${t('fmtPickerTitle')}">
-      <option value="">${t('fmtDefault')}</option>
-    </select>
     <button type="button" class="btn btn-ghost btn-sm btn-remove-row" title="删除行">✕</button>
   `;
 
@@ -478,24 +478,84 @@ function addUrlRow(initialUrl = '') {
   return row;
 }
 
-async function onFormatPickerClick(row) {
-  const input = row.querySelector('.url-row-input');
-  const url = input ? input.value.trim() : '';
-  if (!url) {
-    showToast(t('toastUrlEmpty') || '请先输入 URL', 'error');
-    if (input) input.focus();
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function truncateMiddle(str, maxLen) {
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen - 3) + '...';
+}
+
+// 高级模式已选格式：{ url: formatId }，行重建后用于恢复选择
+let advSelectedFormats = {};
+
+function initAdvancedSection() {
+  const toggle = document.getElementById('btn-advanced-toggle');
+  const panel = document.getElementById('advanced-panel');
+  const fetchAll = document.getElementById('btn-fetch-all-formats');
+  if (!toggle || !panel) return;
+  toggle.onclick = () => {
+    const willOpen = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden');
+    toggle.classList.toggle('open', willOpen);
+    if (willOpen) buildAdvancedFormatRows();
+  };
+  if (fetchAll) {
+    fetchAll.onclick = () => fetchAllAdvancedFormats();
+  }
+}
+
+function getUrlRowsList() {
+  const container = document.getElementById('url-rows-container');
+  const list = [];
+  if (container) {
+    container.querySelectorAll('.url-input-row').forEach(r => {
+      const input = r.querySelector('.url-row-input');
+      const u = input ? input.value.trim() : '';
+      if (u) list.push(u);
+    });
+  }
+  return list;
+}
+
+function buildAdvancedFormatRows() {
+  const container = document.getElementById('advanced-format-rows');
+  if (!container) return;
+  container.innerHTML = '';
+  const urls = getUrlRowsList();
+  if (!urls.length) {
+    container.innerHTML = `<p class="adv-empty">${escapeHtml(t('advNoUrl'))}</p>`;
     return;
   }
+  urls.forEach(url => {
+    const div = document.createElement('div');
+    div.className = 'adv-format-row';
+    const safeUrl = escapeHtml(url);
+    div.innerHTML = `
+      <span class="adv-url-label" title="${safeUrl}">${escapeHtml(truncateMiddle(url, 52))}</span>
+      <select class="adv-format-select opt-select" data-url="${safeUrl}" title="${escapeHtml(t('fmtPickerTitle'))}">
+        <option value="">${escapeHtml(t('fmtDefault'))}</option>
+      </select>
+      <span class="adv-row-status"></span>`;
+    const select = div.querySelector('.adv-format-select');
+    select.addEventListener('change', () => {
+      if (select.value) advSelectedFormats[url] = select.value;
+      else delete advSelectedFormats[url];
+    });
+    container.appendChild(div);
+  });
+}
 
-  const btn = row.querySelector('.format-picker-btn');
-  const select = row.querySelector('.format-picker-select');
-  const spinner = btn ? btn.querySelector('.picker-spinner') : null;
-  const btnText = btn ? btn.querySelector('.picker-text') : null;
-
-  if (btn) btn.disabled = true;
-  if (spinner) spinner.classList.remove('hidden');
-  if (btnText) btnText.textContent = t('fmtLoading');
-
+async function fetchFormatsIntoSelect(rowDiv) {
+  const select = rowDiv.querySelector('.adv-format-select');
+  const status = rowDiv.querySelector('.adv-row-status');
+  const url = select ? select.dataset.url : '';
+  if (!select || !url) return;
+  select.disabled = true;
+  if (status) status.textContent = t('fmtLoading');
   try {
     const res = await fetch('/api/formats', {
       method: 'POST',
@@ -503,44 +563,48 @@ async function onFormatPickerClick(row) {
       body: JSON.stringify({ url }),
     });
     const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || '获取格式失败');
-    }
-
-    if (select) {
-      select.innerHTML = '';
-      const defaultOpt = document.createElement('option');
-      defaultOpt.value = '';
-      defaultOpt.textContent = t('fmtDefault');
-      select.appendChild(defaultOpt);
-
-      const formats = data.formats || [];
-      if (!formats.length) {
-        showToast('未检测到可用格式，将使用默认质量设置', 'info');
-      } else {
-        const videoGroup = document.createElement('optgroup');
-        videoGroup.label = t('fmtGroupVideo');
-        const audioGroup = document.createElement('optgroup');
-        audioGroup.label = t('fmtGroupAudio');
-        formats.forEach(f => {
-          const opt = document.createElement('option');
-          opt.value = f.id;
-          opt.textContent = formatOptionLabel(f);
-          const isAudioOnly = f.vcodec === 'none' || (!f.resolution && f.acodec && f.acodec !== 'none');
-          (isAudioOnly ? audioGroup : videoGroup).appendChild(opt);
-        });
-        if (videoGroup.children.length) select.appendChild(videoGroup);
-        if (audioGroup.children.length) select.appendChild(audioGroup);
-        select.classList.remove('hidden');
-        select.focus();
+    if (!res.ok) throw new Error(data.error || 'failed');
+    const formats = data.formats || [];
+    select.innerHTML = '';
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = t('fmtDefault');
+    select.appendChild(defaultOpt);
+    if (!formats.length) {
+      if (status) status.textContent = t('advNoFormats');
+    } else {
+      const videoGroup = document.createElement('optgroup');
+      videoGroup.label = t('fmtGroupVideo');
+      const audioGroup = document.createElement('optgroup');
+      audioGroup.label = t('fmtGroupAudio');
+      formats.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = formatOptionLabel(f);
+        const isAudioOnly = f.vcodec === 'none' || (!f.resolution && f.acodec && f.acodec !== 'none');
+        (isAudioOnly ? audioGroup : videoGroup).appendChild(opt);
+      });
+      if (videoGroup.children.length) select.appendChild(videoGroup);
+      if (audioGroup.children.length) select.appendChild(audioGroup);
+      // 恢复之前为该 URL 选过的格式
+      const prevSel = advSelectedFormats[url];
+      if (prevSel && select.querySelector(`option[value="${prevSel}"]`)) {
+        select.value = prevSel;
       }
+      if (status) status.textContent = '';
     }
   } catch (err) {
-    showToast(`获取格式失败: ${err.message}`, 'error');
+    if (status) status.textContent = t('advFetchFailed');
   } finally {
-    if (btn) btn.disabled = false;
-    if (spinner) spinner.classList.add('hidden');
-    if (btnText) btnText.textContent = t('fmtPickerBtn');
+    select.disabled = false;
+  }
+}
+
+async function fetchAllAdvancedFormats() {
+  buildAdvancedFormatRows();
+  const rows = document.querySelectorAll('#advanced-format-rows .adv-format-row');
+  for (const r of rows) {
+    await fetchFormatsIntoSelect(r);
   }
 }
 
@@ -554,13 +618,7 @@ function getAllUrlRowsData() {
     rows.forEach(r => {
       const input = r.querySelector('.url-row-input');
       const u = input ? input.value.trim() : '';
-      if (u) {
-        urls.push(u);
-        const sel = r.querySelector('.format-picker-select');
-        if (sel && sel.value) {
-          formats[u] = sel.value;
-        }
-      }
+      if (u) urls.push(u);
     });
   } else {
     const el = document.getElementById('url-input');
@@ -568,6 +626,13 @@ function getAllUrlRowsData() {
       urls.push(...el.value.trim().split('\n').map(s => s.trim()).filter(Boolean));
     }
   }
+
+  // 高级模式：逐链接指定的来源格式
+  document.querySelectorAll('#advanced-format-rows .adv-format-select').forEach(sel => {
+    if (sel.value && sel.dataset.url) {
+      formats[sel.dataset.url] = sel.value;
+    }
+  });
 
   return { urls, formats };
 }
@@ -580,16 +645,15 @@ function resetUrlRows() {
     if (idx === 0) {
       const input = r.querySelector('.url-row-input');
       if (input) input.value = '';
-      const sel = r.querySelector('.format-picker-select');
-      if (sel) {
-        sel.innerHTML = `<option value="">${t('fmtDefault')}</option>`;
-        sel.classList.add('hidden');
-      }
     } else {
       r.remove();
     }
   });
   updateRemoveButtonsVisibility();
+  // 清空高级模式的格式选择
+  advSelectedFormats = {};
+  const advContainer = document.getElementById('advanced-format-rows');
+  if (advContainer) advContainer.innerHTML = '';
 }
 
 async function fetchVideoInfo() {
@@ -1740,6 +1804,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 事件绑定
   initTabs();
   initFormatToggle();
+  initAdvancedSection();
 
   document.getElementById('lang-toggle').addEventListener('click', toggleLang);
   document.getElementById('btn-fetch-info').addEventListener('click', fetchVideoInfo);
