@@ -91,6 +91,17 @@ const I18N = {
     statusError: '失败',
     statusMerging: '合并中',
     statusCancelled: '已停止',
+    statusPaused: '已暂停',
+    statusPartial: '部分完成',
+    btnPause: '⏸ 暂停',
+    btnResume: '▶ 恢复',
+    btnRetry: '🔄 重试',
+    toastTaskPaused: '任务已暂停',
+    toastTaskResumed: '任务已恢复并重新排队',
+    toastTaskRetried: '任务已重新提交下载',
+    toastPauseError: '暂停失败',
+    toastResumeError: '恢复失败',
+    toastRetryError: '重试失败',
     errorTypeNetwork: '🌐 网络问题',
     errorTypeAuth: '🔐 需要登录',
     errorTypeGeo: '🗺 地区限制',
@@ -189,6 +200,17 @@ const I18N = {
     statusError: 'Error',
     statusMerging: 'Merging',
     statusCancelled: 'Stopped',
+    statusPaused: 'Paused',
+    statusPartial: 'Partial',
+    btnPause: '⏸ Pause',
+    btnResume: '▶ Resume',
+    btnRetry: '🔄 Retry',
+    toastTaskPaused: 'Task paused',
+    toastTaskResumed: 'Task resumed and re-queued',
+    toastTaskRetried: 'Task retried and re-queued',
+    toastPauseError: 'Failed to pause task',
+    toastResumeError: 'Failed to resume task',
+    toastRetryError: 'Failed to retry task',
     errorTypeNetwork: '🌐 Network Issue',
     errorTypeAuth: '🔐 Login Required',
     errorTypeGeo: '🗺 Geo-Restricted',
@@ -441,6 +463,7 @@ function createTaskCard(taskId, urls, initialStatus = 'queued') {
   const clone = tpl.content.cloneNode(true);
   const card = clone.querySelector('.task-card');
   card.dataset.taskId = taskId;
+  card.taskUrls = Array.isArray(urls) ? urls : [urls];
 
   const badge = card.querySelector('.task-badge');
   badge.dataset.status = initialStatus;
@@ -448,11 +471,30 @@ function createTaskCard(taskId, urls, initialStatus = 'queued') {
   badge.textContent = t('status' + initialStatus.charAt(0).toUpperCase() + initialStatus.slice(1));
 
   const titleEl = card.querySelector('.task-title');
-  titleEl.textContent = urls.length === 1 ? urls[0] : `${urls.length} 个链接`;
+  const urlsList = card.taskUrls;
+  titleEl.textContent = urlsList.length === 1 ? urlsList[0] : `${urlsList.length} 个链接`;
 
   const stopBtn = card.querySelector('.task-stop-btn');
   stopBtn.textContent = t('btnStop');
   stopBtn.addEventListener('click', () => stopTask(taskId, card));
+
+  const pauseBtn = card.querySelector('.task-pause-btn');
+  if (pauseBtn) {
+    pauseBtn.textContent = t('btnPause');
+    pauseBtn.addEventListener('click', () => pauseTask(taskId, card));
+  }
+
+  const resumeBtn = card.querySelector('.task-resume-btn');
+  if (resumeBtn) {
+    resumeBtn.textContent = t('btnResume');
+    resumeBtn.addEventListener('click', () => resumeTask(taskId, card));
+  }
+
+  const retryBtn = card.querySelector('.task-retry-btn');
+  if (retryBtn) {
+    retryBtn.textContent = t('btnRetry');
+    retryBtn.addEventListener('click', () => retryTask(taskId, card));
+  }
 
   const exportBtn = card.querySelector('.task-export-btn');
   exportBtn.textContent = t('btnExportLog');
@@ -505,6 +547,10 @@ function startSSE(taskId, card) {
   const openFileBtn   = card.querySelector('.task-open-file-btn');
   const openFolderBtn = card.querySelector('.task-open-folder-btn');
   const viewLogBtn    = card.querySelector('.task-view-log-btn');
+  const stopBtn       = card.querySelector('.task-stop-btn');
+  const pauseBtn      = card.querySelector('.task-pause-btn');
+  const resumeBtn     = card.querySelector('.task-resume-btn');
+  const retryBtn      = card.querySelector('.task-retry-btn');
   const errBanner     = card.querySelector('.known-error-banner');
   const errMsg        = card.querySelector('.known-error-msg');
   const errHint       = card.querySelector('.known-error-hint');
@@ -515,6 +561,33 @@ function startSSE(taskId, card) {
     badge.dataset.status = status;
     badge.classList.add(status);
     badge.textContent = t('status' + status.charAt(0).toUpperCase() + status.slice(1));
+
+    if (status === 'running') {
+      if (pauseBtn) pauseBtn.classList.remove('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+      if (retryBtn) retryBtn.classList.add('hidden');
+      if (stopBtn) stopBtn.style.display = '';
+    } else if (status === 'paused') {
+      if (pauseBtn) pauseBtn.classList.add('hidden');
+      if (resumeBtn) resumeBtn.classList.remove('hidden');
+      if (retryBtn) retryBtn.classList.add('hidden');
+      if (stopBtn) stopBtn.style.display = 'none';
+    } else if (status === 'error' || status === 'partial') {
+      if (pauseBtn) pauseBtn.classList.add('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+      if (retryBtn) retryBtn.classList.remove('hidden');
+      if (stopBtn) stopBtn.style.display = 'none';
+    } else if (status === 'queued') {
+      if (pauseBtn) pauseBtn.classList.add('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+      if (retryBtn) retryBtn.classList.add('hidden');
+      if (stopBtn) stopBtn.style.display = '';
+    } else {
+      if (pauseBtn) pauseBtn.classList.add('hidden');
+      if (resumeBtn) resumeBtn.classList.add('hidden');
+      if (retryBtn) retryBtn.classList.add('hidden');
+      if (stopBtn) stopBtn.style.display = 'none';
+    }
   }
 
   es.addEventListener('status', e => {
@@ -590,13 +663,17 @@ function startSSE(taskId, card) {
   es.addEventListener('done', e => {
     const d = JSON.parse(e.data);
     if (d.log_file) card.dataset.logFile = d.log_file;
-    const s = d.status === 'success' ? 'success' : d.status === 'cancelled' ? 'cancelled' : 'error';
+    const s = d.status === 'success' ? 'success'
+            : d.status === 'cancelled' ? 'cancelled'
+            : d.status === 'paused' ? 'paused'
+            : d.status === 'partial' ? 'partial'
+            : 'error';
     setStatus(s);
     if (s === 'success') {
       fill.style.width = '100%';
       // 成功完成后后台刷新历史记录
       loadHistory();
-    } else if (s === 'error') {
+    } else if (s === 'error' || s === 'partial') {
       const hasKnownError = !errBanner.classList.contains('hidden');
       if (!hasKnownError && card.dataset.logFile) {
         exportBtn.classList.remove('hidden');
@@ -604,6 +681,9 @@ function startSSE(taskId, card) {
       if (viewLogBtn && card.dataset.logFile) {
         viewLogBtn.classList.remove('hidden');
       }
+      loadHistory();
+    } else if (s === 'paused') {
+      log.textContent = currentLang === 'zh' ? '已暂停下载' : 'Download paused';
     }
     card.querySelector('.task-stop-btn').style.display = 'none';
     es.close();
@@ -671,6 +751,80 @@ async function stopTask(taskId, card) {
   }
 }
 
+async function pauseTask(taskId, card) {
+  try {
+    const res = await fetch(`/api/pause/${taskId}`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to pause');
+    showToast(t('toastTaskPaused'), 'info');
+    const badge = card.querySelector('.task-badge');
+    if (badge) {
+      badge.className = 'task-badge paused';
+      badge.dataset.status = 'paused';
+      badge.textContent = t('statusPaused');
+    }
+    const pauseBtn = card.querySelector('.task-pause-btn');
+    const resumeBtn = card.querySelector('.task-resume-btn');
+    const stopBtn = card.querySelector('.task-stop-btn');
+    if (pauseBtn) pauseBtn.classList.add('hidden');
+    if (resumeBtn) resumeBtn.classList.remove('hidden');
+    if (stopBtn) stopBtn.style.display = 'none';
+  } catch (err) {
+    showToast(`${t('toastPauseError')}: ${err.message}`, 'error');
+  }
+}
+
+async function resumeTask(taskId, card) {
+  try {
+    const res = await fetch(`/api/resume/${taskId}`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to resume');
+    showToast(t('toastTaskResumed'), 'success');
+
+    const resumeBtn = card.querySelector('.task-resume-btn');
+    if (resumeBtn) resumeBtn.classList.add('hidden');
+    const badge = card.querySelector('.task-badge');
+    if (badge) {
+      badge.className = 'task-badge cancelled';
+      badge.dataset.status = 'cancelled';
+      badge.textContent = t('statusCancelled');
+    }
+
+    const urls = card.taskUrls || [card.querySelector('.task-title')?.textContent || ''];
+    createTaskCard(data.task_id, urls, data.status || 'queued');
+  } catch (err) {
+    showToast(`${t('toastResumeError')}: ${err.message}`, 'error');
+  }
+}
+
+async function retryTask(taskId, cardOrUrls) {
+  try {
+    const res = await fetch(`/api/retry/${encodeURIComponent(taskId)}`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to retry');
+    showToast(t('toastTaskRetried'), 'success');
+
+    let urls = [];
+    if (Array.isArray(cardOrUrls)) {
+      urls = cardOrUrls;
+    } else if (cardOrUrls && cardOrUrls.taskUrls) {
+      urls = cardOrUrls.taskUrls;
+    } else if (cardOrUrls && cardOrUrls.querySelector) {
+      urls = [cardOrUrls.querySelector('.task-title')?.textContent || ''];
+    }
+    if (!urls || !urls.length) urls = ['...'];
+
+    const downloadTabBtn = document.querySelector('.nav-tab[data-tab="download"]');
+    if (downloadTabBtn && !downloadTabBtn.classList.contains('active')) {
+      downloadTabBtn.click();
+    }
+
+    createTaskCard(data.task_id, urls, data.status || 'queued');
+  } catch (err) {
+    showToast(`${t('toastRetryError')}: ${err.message}`, 'error');
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // 历史记录
 // ══════════════════════════════════════════════════════════════════════════════
@@ -720,10 +874,21 @@ async function loadHistory() {
       card.querySelector('.hist-time').textContent = formatTime(item.timestamp);
 
       // 操作按钮
+      const btnRetry = card.querySelector('.hist-btn-retry');
       const btnOpenFile = card.querySelector('.hist-btn-open-file');
       const btnOpenFolder = card.querySelector('.hist-btn-open-folder');
       const btnViewLog = card.querySelector('.hist-btn-view-log');
       const btnDelete = card.querySelector('.hist-btn-delete');
+
+      if (btnRetry) {
+        btnRetry.textContent = t('btnRetry');
+        if (item.status === 'error' || item.status === 'partial') {
+          btnRetry.classList.remove('hidden');
+          btnRetry.onclick = () => retryTask(item.task_id || item.id, [item.url]);
+        } else {
+          btnRetry.classList.add('hidden');
+        }
+      }
 
       const filePath = item.file_path || (item.filename ? `downloads/${item.filename}` : '');
       if (item.status === 'success' && item.file_exists !== false && filePath) {
