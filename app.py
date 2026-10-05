@@ -667,6 +667,133 @@ def parse_progress_line(line: str) -> dict | None:
     return {"type": "log", "message": line}
 
 
+def parse_speed_to_bytes(speed_val) -> float | None:
+    if speed_val is None:
+        return None
+    if isinstance(speed_val, (int, float)):
+        return float(speed_val) if speed_val > 0 else None
+    if isinstance(speed_val, str):
+        s = speed_val.strip()
+        if not s or s in ("—", "N/A", "Unknown", "none"):
+            return None
+        m = re.match(r'^([\d.]+)\s*([KMGTkmgt]?i?[Bb])/s$', s)
+        if m:
+            val, unit = float(m.group(1)), m.group(2).upper()
+            multipliers = {
+                'B': 1,
+                'KB': 1000, 'KIB': 1024,
+                'MB': 1000**2, 'MIB': 1024**2,
+                'GB': 1000**3, 'GIB': 1024**3,
+                'TB': 1000**4, 'TIB': 1024**4,
+            }
+            return val * multipliers.get(unit, 1)
+        try:
+            v = float(s)
+            return v if v > 0 else None
+        except ValueError:
+            return None
+    return None
+
+
+def parse_eta_to_seconds(eta_val) -> int | None:
+    if eta_val is None:
+        return None
+    if isinstance(eta_val, (int, float)):
+        return int(eta_val) if eta_val >= 0 else None
+    if isinstance(eta_val, str):
+        s = eta_val.strip().replace("ETA", "").strip()
+        if not s or s in ("—", "N/A", "Unknown", "none"):
+            return None
+        if ":" in s:
+            try:
+                parts = [int(p) for p in s.split(":")]
+                if len(parts) == 2:
+                    return parts[0] * 60 + parts[1]
+                elif len(parts) == 3:
+                    return parts[0] * 3600 + parts[1] * 60 + parts[2]
+            except ValueError:
+                return None
+        try:
+            v = int(float(s))
+            return v if v >= 0 else None
+        except ValueError:
+            return None
+    return None
+
+
+def progress_hook(arg1, arg2=None, task_id: str | None = None) -> dict:
+    """yt-dlp 进度钩子函数 / progress hook
+
+    支持调用方式:
+    - progress_hook(task_id, data_dict)
+    - progress_hook(data_dict, task_id)
+    - progress_hook(data_dict, task_id="...")
+    - progress_hook(data_dict) # 自动关联当前/最新任务
+    """
+    if isinstance(arg1, str):
+        tid = arg1
+        data = arg2 if isinstance(arg2, dict) else {}
+    elif isinstance(arg1, dict):
+        data = arg1
+        if isinstance(arg2, str):
+            tid = arg2
+        elif task_id:
+            tid = task_id
+        elif "task_id" in data:
+            tid = data["task_id"]
+        else:
+            with tasks_lock:
+                running = [t for t in tasks.values() if t.get("status") == "running"]
+                tid = running[-1]["id"] if running else (list(tasks.keys())[-1] if tasks else None)
+    else:
+        tid = task_id
+        data = {}
+
+    raw_speed = data.get("speed")
+    raw_eta = data.get("eta")
+
+    speed = parse_speed_to_bytes(raw_speed)
+    eta = parse_eta_to_seconds(raw_eta)
+
+    percent = data.get("percent")
+    if percent is None and "downloaded_bytes" in data and data.get("total_bytes"):
+        try:
+            percent = round(data["downloaded_bytes"] / data["total_bytes"] * 100, 1)
+        except Exception:
+            pass
+
+    with tasks_lock:
+        if tid and tid in tasks:
+            task = tasks[tid]
+            if "progress" not in task or not isinstance(task["progress"], dict):
+                task["progress"] = {}
+            task["progress"]["speed"] = speed
+            task["progress"]["eta"] = eta
+            if percent is not None:
+                task["progress"]["percent"] = percent
+            task["speed"] = speed
+            task["eta"] = eta
+
+    if tid and tid in task_queues:
+        q = task_queues[tid]
+        update_data = {
+            "task_id": tid,
+            "speed": speed,
+            "eta": eta,
+        }
+        if percent is not None:
+            update_data["percent"] = percent
+        with tasks_lock:
+            if tid in tasks and "status" in tasks[tid]:
+                update_data["status"] = tasks[tid]["status"]
+        for k, v in data.items():
+            if k not in update_data and k not in ("speed", "eta"):
+                update_data[k] = v
+        send_event(q, "task_update", update_data)
+
+    return {"task_id": tid, "speed": speed, "eta": eta, "percent": percent}
+
+
 def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> None:
     q = task_queues.get(task_id)
     if not q:
@@ -779,7 +906,23 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
 
                 parsed = parse_progress_line(raw_line)
                 if parsed:
-                    send_event(q, "progress", {**parsed, "url_index": idx})
+                    if parsed.get("type") == "progress":
+                        speed_b = parse_speed_to_bytes(parsed.get("speed"))
+                        eta_s = parse_eta_to_seconds(parsed.get("eta"))
+                        pct_v = parsed.get("percent")
+                        progress_hook(task_id, {
+                            "speed": speed_b,
+                            "eta": eta_s,
+                            "percent": pct_v,
+                            "total": parsed.get("total"),
+                            "url_index": idx,
+                        })
+                    send_event(q, "progress", {
+                        **parsed,
+                        "speed_bytes": parse_speed_to_bytes(parsed.get("speed")),
+                        "eta_seconds": parse_eta_to_seconds(parsed.get("eta")),
+                        "url_index": idx,
+                    })
 
             proc.wait()
             ret = proc.returncode
@@ -837,7 +980,23 @@ def download_worker(task_id: str, urls: list[str], opts: dict, cfg: dict) -> Non
                         captured_files.append(m_already.group(1).strip())
                     parsed = parse_progress_line(raw_line)
                     if parsed:
-                        send_event(q, "progress", {**parsed, "url_index": idx})
+                        if parsed.get("type") == "progress":
+                            speed_b = parse_speed_to_bytes(parsed.get("speed"))
+                            eta_s = parse_eta_to_seconds(parsed.get("eta"))
+                            pct_v = parsed.get("percent")
+                            progress_hook(task_id, {
+                                "speed": speed_b,
+                                "eta": eta_s,
+                                "percent": pct_v,
+                                "total": parsed.get("total"),
+                                "url_index": idx,
+                            })
+                        send_event(q, "progress", {
+                            **parsed,
+                            "speed_bytes": parse_speed_to_bytes(parsed.get("speed")),
+                            "eta_seconds": parse_eta_to_seconds(parsed.get("eta")),
+                            "url_index": idx,
+                        })
                 proc.wait()
                 ret = proc.returncode
 
@@ -1338,6 +1497,13 @@ def _enqueue_task(urls: list[str], opts: dict, cfg: dict, formats: dict | None =
             "paused": False,
             "done_indices": [],
             "remaining_urls": list(urls),
+            "progress": {
+                "percent": 0.0,
+                "speed": None,
+                "eta": None,
+            },
+            "speed": None,
+            "eta": None,
         }
         task_queues[task_id] = q
 

@@ -689,6 +689,74 @@ async function startDownload() {
   }
 }
 
+function formatDownloadSpeed(speed) {
+  if (speed === null || speed === undefined || speed === '' || speed === '—') {
+    return '—';
+  }
+  let bytes = Number(speed);
+  if (isNaN(bytes)) {
+    const s = String(speed).trim();
+    if (!s || s === '—') return '—';
+    const m = s.match(/^([\d.]+)\s*([KMGTkmgt]?i?[Bb])\/s$/);
+    if (m) {
+      const val = parseFloat(m[1]);
+      const unit = m[2].toUpperCase();
+      const mult = {
+        'B': 1,
+        'KB': 1000, 'KIB': 1024,
+        'MB': 1000*1000, 'MIB': 1024*1024,
+        'GB': 1000*1000*1000, 'GIB': 1024*1024*1024,
+      }[unit] || 1;
+      bytes = val * mult;
+    } else {
+      const parsed = parseFloat(s);
+      if (isNaN(parsed)) return '—';
+      bytes = parsed;
+    }
+  }
+  if (bytes <= 0) return '—';
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB/s`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB/s`;
+  }
+  return `${Math.round(bytes)} B/s`;
+}
+
+function formatDownloadEta(eta) {
+  if (eta === null || eta === undefined || eta === '' || eta === '—') {
+    return '—';
+  }
+  let sec = Number(eta);
+  if (isNaN(sec)) {
+    const s = String(eta).trim().replace(/^ETA\s*/i, '');
+    if (!s || s === '—') return '—';
+    if (s.includes(':')) {
+      const parts = s.split(':').map(Number);
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        sec = parts[0] * 60 + parts[1];
+      } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else {
+        return s;
+      }
+    } else {
+      sec = parseFloat(s);
+      if (isNaN(sec)) return '—';
+    }
+  }
+  sec = Math.round(sec);
+  if (sec < 0) return '—';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 // ── 任务卡片 ──────────────────────────────────────────────────────────────────
 function createTaskCard(taskId, urls, initialStatus = 'queued') {
   const tpl = document.getElementById('task-card-tpl');
@@ -788,11 +856,19 @@ function startSSE(taskId, card) {
   const errHint       = card.querySelector('.known-error-hint');
   const errIcon       = card.querySelector('.known-error-icon');
 
+  if (speed) speed.textContent = '—';
+  if (eta) eta.textContent = '—';
+
   function setStatus(status) {
     badge.className = 'task-badge';
     badge.dataset.status = status;
     badge.classList.add(status);
     badge.textContent = t('status' + status.charAt(0).toUpperCase() + status.slice(1));
+
+    if (status !== 'running') {
+      if (speed) speed.textContent = '—';
+      if (eta) eta.textContent = '—';
+    }
 
     if (status === 'running') {
       if (pauseBtn) pauseBtn.classList.remove('hidden');
@@ -836,6 +912,18 @@ function startSSE(taskId, card) {
     if (d.log_file) card.dataset.logFile = d.log_file;
   });
 
+  es.addEventListener('task_update', e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (typeof d.percent === 'number') {
+        fill.style.width = `${d.percent}%`;
+        pct.textContent = `${d.percent.toFixed(1)}%`;
+      }
+      if (speed) speed.textContent = formatDownloadSpeed(d.speed);
+      if (eta) eta.textContent = formatDownloadEta(d.eta);
+    } catch (_) {}
+  });
+
   // 已知错误事件 ── 直接显示横幅，不需要导出日志
   es.addEventListener('known_error', e => {
     const d = JSON.parse(e.data);
@@ -855,13 +943,17 @@ function startSSE(taskId, card) {
     if (d.type === 'merging') {
       setStatus('merging');
       log.textContent = d.message || '';
+      if (speed) speed.textContent = '—';
+      if (eta) eta.textContent = '—';
       return;
     }
     if (d.type === 'progress' && typeof d.percent === 'number') {
       fill.style.width = `${d.percent}%`;
       pct.textContent = `${d.percent.toFixed(1)}%`;
-      speed.textContent = d.speed || '';
-      eta.textContent   = d.eta ? `ETA ${d.eta}` : '';
+      const spdVal = d.speed_bytes !== undefined ? d.speed_bytes : d.speed;
+      const etaVal = d.eta_seconds !== undefined ? d.eta_seconds : d.eta;
+      if (speed) speed.textContent = formatDownloadSpeed(spdVal);
+      if (eta) eta.textContent   = formatDownloadEta(etaVal);
       total.textContent = d.total || '';
     }
     if (d.type === 'log' || d.type === 'info') {
@@ -871,6 +963,8 @@ function startSSE(taskId, card) {
 
   es.addEventListener('url_done', e => {
     const d = JSON.parse(e.data);
+    if (speed) speed.textContent = '—';
+    if (eta) eta.textContent = '—';
     if (d.log_file) card.dataset.logFile = d.log_file;
     if (d.file_path) card.dataset.filePath = d.file_path;
     if (d.title) title.textContent = d.title;
@@ -894,6 +988,8 @@ function startSSE(taskId, card) {
 
   es.addEventListener('done', e => {
     const d = JSON.parse(e.data);
+    if (speed) speed.textContent = '—';
+    if (eta) eta.textContent = '—';
     if (d.log_file) card.dataset.logFile = d.log_file;
     const s = d.status === 'success' ? 'success'
             : d.status === 'cancelled' ? 'cancelled'
