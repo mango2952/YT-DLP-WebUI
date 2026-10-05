@@ -7,6 +7,9 @@
 
 /* ── CSS Variables ────────────────────────────────────────────────────────── */
 :root {
+  /* Native controls (select dropdowns, scrollbars) follow the dark theme */
+  color-scheme: dark;
+
   /* Colors */
   --bg-base:        #0a0c10;
   --bg-surface:     #111318;

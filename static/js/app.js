@@ -115,8 +115,14 @@ const I18N = {
     contactTitle: '意见反馈与问题排查',
     contactDesc: '若遇到下载报错，请点击任务卡片上的【导出日志】，将生成的 log 文件发送至作者邮箱：',
     aboutDevTitle: '开发工具与架构',
-    aboutDevDesc: '本产品全栈架构、功能实现与 Web 界面均基于 Google Antigravity 智能编程开发完成。',
+    aboutDevDesc: '本产品由 Muse AI 与 Google Antigravity 协作开发完成。',
     logModalHint: '如遇软件报错，可点击【导出】将日志文件发送至作者邮箱：',
+    fmtPickerBtn: '🎛️ 指定格式',
+    fmtPickerTitle: '为这个链接单独指定格式（可选）；不选则使用下方全局设置',
+    fmtDefault: '默认（使用下方全局设置）',
+    fmtGroupVideo: '视频',
+    fmtGroupAudio: '纯音频',
+    fmtLoading: ' 获取中…',
   },
   en: {
     appName: 'YT-DLP WebUI',
@@ -224,8 +230,14 @@ const I18N = {
     contactTitle: 'Feedback & Troubleshooting',
     contactDesc: 'If a download fails, export the log file and email to:',
     aboutDevTitle: 'Built with Antigravity',
-    aboutDevDesc: 'This project was architected, designed and implemented using Google Antigravity.',
+    aboutDevDesc: 'Developed collaboratively by Muse AI and Google Antigravity.',
     logModalHint: 'If you encounter an error, export and email logs to:',
+    fmtPickerBtn: '🎛️ Format',
+    fmtPickerTitle: 'Set a specific format for this URL (optional); leave unset to use the global settings below',
+    fmtDefault: 'Default (use global settings below)',
+    fmtGroupVideo: 'Video',
+    fmtGroupAudio: 'Audio only',
+    fmtLoading: ' Loading…',
   },
 };
 
@@ -246,6 +258,9 @@ function applyI18n() {
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.getAttribute('data-i18n-title'));
   });
   document.querySelectorAll('.task-badge[data-status]').forEach(el => {
     const s = el.dataset.status;
@@ -442,12 +457,12 @@ function addUrlRow(initialUrl = '') {
       spellcheck="false"
       value="${initialUrl ? initialUrl.replace(/"/g, '&quot;') : ''}"
     />
-    <button type="button" class="btn btn-secondary btn-sm format-picker-btn" title="选择格式">
+    <button type="button" class="btn btn-secondary btn-sm format-picker-btn" data-i18n-title="fmtPickerTitle" title="${t('fmtPickerTitle')}">
       <span class="picker-spinner hidden">⏳</span>
-      <span class="picker-text">🎛️ 格式</span>
+      <span class="picker-text" data-i18n="fmtPickerBtn">${t('fmtPickerBtn')}</span>
     </button>
-    <select class="format-picker-select hidden" title="选择格式">
-      <option value="">默认 (全局设置)</option>
+    <select class="format-picker-select hidden" data-i18n-title="fmtPickerTitle" title="${t('fmtPickerTitle')}">
+      <option value="">${t('fmtDefault')}</option>
     </select>
     <button type="button" class="btn btn-ghost btn-sm btn-remove-row" title="删除行">✕</button>
   `;
@@ -479,7 +494,7 @@ async function onFormatPickerClick(row) {
 
   if (btn) btn.disabled = true;
   if (spinner) spinner.classList.remove('hidden');
-  if (btnText) btnText.textContent = ' 获取中…';
+  if (btnText) btnText.textContent = t('fmtLoading');
 
   try {
     const res = await fetch('/api/formats', {
@@ -496,19 +511,26 @@ async function onFormatPickerClick(row) {
       select.innerHTML = '';
       const defaultOpt = document.createElement('option');
       defaultOpt.value = '';
-      defaultOpt.textContent = '默认 (全局设置)';
+      defaultOpt.textContent = t('fmtDefault');
       select.appendChild(defaultOpt);
 
       const formats = data.formats || [];
       if (!formats.length) {
         showToast('未检测到可用格式，将使用默认质量设置', 'info');
       } else {
+        const videoGroup = document.createElement('optgroup');
+        videoGroup.label = t('fmtGroupVideo');
+        const audioGroup = document.createElement('optgroup');
+        audioGroup.label = t('fmtGroupAudio');
         formats.forEach(f => {
           const opt = document.createElement('option');
           opt.value = f.id;
           opt.textContent = formatOptionLabel(f);
-          select.appendChild(opt);
+          const isAudioOnly = f.vcodec === 'none' || (!f.resolution && f.acodec && f.acodec !== 'none');
+          (isAudioOnly ? audioGroup : videoGroup).appendChild(opt);
         });
+        if (videoGroup.children.length) select.appendChild(videoGroup);
+        if (audioGroup.children.length) select.appendChild(audioGroup);
         select.classList.remove('hidden');
         select.focus();
       }
@@ -518,7 +540,7 @@ async function onFormatPickerClick(row) {
   } finally {
     if (btn) btn.disabled = false;
     if (spinner) spinner.classList.add('hidden');
-    if (btnText) btnText.textContent = '🎛️ 格式';
+    if (btnText) btnText.textContent = t('fmtPickerBtn');
   }
 }
 
@@ -560,7 +582,7 @@ function resetUrlRows() {
       if (input) input.value = '';
       const sel = r.querySelector('.format-picker-select');
       if (sel) {
-        sel.innerHTML = '<option value="">默认 (全局设置)</option>';
+        sel.innerHTML = `<option value="">${t('fmtDefault')}</option>`;
         sel.classList.add('hidden');
       }
     } else {
