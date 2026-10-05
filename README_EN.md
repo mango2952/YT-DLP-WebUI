@@ -7,7 +7,7 @@
 Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpeg.org/), designed and built with **Google Antigravity**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue.svg)](https://github.com)
+[![Platform: Windows | macOS | Linux](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
 [![yt--dlp](https://img.shields.io/badge/yt--dlp-Latest-red.svg)](https://github.com/yt-dlp/yt-dlp)
 [![Built with: Google Antigravity](https://img.shields.io/badge/Built%20with-Google%20Antigravity-4285F4.svg)](https://antigravity.google/)
@@ -47,12 +47,21 @@ Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpe
 
 ### Method 1: Portable Release (Recommended for most users)
 
-1. Go to the [Releases page](../../releases/latest).
-2. Download `YT-DLP-WebUI-Portable-Windows-x64.zip`.
-3. Extract it anywhere on your computer.
-4. **Double-click `start.bat`**. Your default browser will open `http://127.0.0.1:8080`.
+Visit the [Releases page](../../releases/latest) to download the portable package for your platform:
 
-> 💡 To terminate the service, run `stop.bat`.
+| Platform | Package Name | Details | How to Run |
+| :--- | :--- | :--- | :--- |
+| **Windows (x64)** | `YT-DLP-WebUI-v*-Portable-Windows-x64.zip` | Bundled with embedded Python, yt-dlp, and FFmpeg. Zero configuration required. | Double-click `start.bat` (stop with `stop.bat`) |
+| **macOS (Apple Silicon / arm64)** | `YT-DLP-WebUI-v*-Portable-MacOS-arm64.zip` | Bundled with yt-dlp and FFmpeg. Automatically initializes `.venv` on first launch. | Run `./start.sh` in terminal (stop with `./stop.sh`, requires `python3`) |
+| **Linux (x64)** | `YT-DLP-WebUI-v*-Portable-Linux-x64.zip` | Bundled with yt-dlp and static FFmpeg. Automatically initializes `.venv` on first launch. | Run `./start.sh` in terminal (stop with `./stop.sh`, requires `python3`) |
+
+> 💡 **Usage Steps**:
+> 1. Extract the downloaded zip to any local folder.
+> 2. **Start the service**:
+>    - **Windows**: Double-click `start.bat`.
+>    - **macOS / Linux**: Open a terminal and run `./start.sh` (requires system Python 3.9+; creates `.venv` and installs dependencies on first run).
+> 3. Once started, open your browser to `http://127.0.0.1:8080`.
+> 4. **Stop the service**: Double-click `stop.bat` on Windows, or run `./stop.sh` on macOS/Linux.
 
 ### Method 2: Running from Source (Developers)
 

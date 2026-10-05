@@ -7,7 +7,7 @@
 基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 与 [FFmpeg](https://ffmpeg.org/) 开发，采用 **Google Antigravity** 智能编程助手全栈设计，内置极速轻量 Web 界面。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue.svg)](https://github.com)
+[![Platform: Windows | macOS | Linux](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
 [![yt--dlp](https://img.shields.io/badge/yt--dlp-Latest-red.svg)](https://github.com/yt-dlp/yt-dlp)
 [![Built with: Google Antigravity](https://img.shields.io/badge/Built%20with-Google%20Antigravity-4285F4.svg)](https://antigravity.google/)
@@ -47,12 +47,21 @@
 
 ### 方式一：下载预打包便携版（推荐普通用户）
 
-1. 进入 [Releases 页面](../../releases/latest)。
-2. 下载 `YT-DLP-WebUI-Portable-Windows-x64.zip`。
-3. 解压到电脑任意目录（路径尽量避免特殊字符）。
-4. **双击 `start.bat`**，浏览器将自动弹出控制台页面（默认端口 `8080`，若被占用自动顺延）。
+前往 [Releases 页面](../../releases/latest) 下载对应平台的便携版压缩包：
 
-> 💡 如需退出停止服务，双击运行 `stop.bat` 即可。
+| 平台 | 便携包名称 | 说明 | 启动方式 |
+| :--- | :--- | :--- | :--- |
+| **Windows (x64)** | `YT-DLP-WebUI-v*-Portable-Windows-x64.zip` | 内置独立 Python 运行环境、yt-dlp 与 FFmpeg，零依赖开箱即用 | 双击 `start.bat`（停止运行 `stop.bat`） |
+| **macOS (Apple Silicon / arm64)** | `YT-DLP-WebUI-v*-Portable-MacOS-arm64.zip` | 内置 yt-dlp 与 FFmpeg，首次启动自动配置虚拟环境 | 终端运行 `./start.sh`（停止运行 `./stop.sh`，需系统已安装 `python3`） |
+| **Linux (x64)** | `YT-DLP-WebUI-v*-Portable-Linux-x64.zip` | 内置 yt-dlp 与静态 FFmpeg，首次启动自动配置虚拟环境 | 终端运行 `./start.sh`（停止运行 `./stop.sh`，需系统已安装 `python3`） |
+
+> 💡 **使用步骤**：
+> 1. 解压下载的压缩包到任意本地目录。
+> 2. **启动服务**：
+>    - **Windows**：双击 `start.bat`。
+>    - **macOS / Linux**：打开终端并运行 `./start.sh`（需系统安装 Python 3.9 或更高版本；首次运行会自动创建 `.venv` 并安装依赖）。
+> 3. 启动后浏览器将访问 `http://127.0.0.1:8080`。
+> 4. **停止服务**：Windows 双击 `stop.bat`，macOS / Linux 运行 `./stop.sh`。
 
 ### 方式二：从源码运行（开发者）
 

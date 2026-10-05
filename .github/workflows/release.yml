@@ -94,4 +94,116 @@ jobs:
           files: ${{ env.ZIP_NAME }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Staging Directory
+        shell: bash
+        run: |
+          stage="YT-DLP-WebUI"
+          mkdir -p "$stage/bin" "$stage/downloads" "$stage/logs"
+
+          cp app.py "$stage/"
+          cp start.sh "$stage/"
+          cp stop.sh "$stage/"
+          cp config.example.json "$stage/config.json"
+          cp README.md "$stage/"
+          cp LICENSE "$stage/"
+          cp requirements.txt "$stage/"
+          cp -r static "$stage/"
+          cp -r templates "$stage/"
+          chmod +x "$stage/start.sh" "$stage/stop.sh"
+
+      - name: Download yt-dlp & FFmpeg
+        shell: bash
+        run: |
+          stage="YT-DLP-WebUI"
+          echo "Downloading yt-dlp..."
+          curl -sSL -f -o "$stage/bin/yt-dlp" "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+          chmod +x "$stage/bin/yt-dlp"
+
+          echo "Installing imageio-ffmpeg..."
+          pip install --break-system-packages imageio-ffmpeg || pip install imageio-ffmpeg || python3 -m pip install --break-system-packages imageio-ffmpeg || python3 -m pip install imageio-ffmpeg
+          ffmpeg_bin=$(python3 -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())")
+          cp "$ffmpeg_bin" "$stage/bin/ffmpeg"
+          chmod +x "$stage/bin/ffmpeg"
+
+      - name: Create Portable Zip Package
+        shell: bash
+        run: |
+          ver="${GITHUB_REF_NAME:-latest}"
+          zip_name="YT-DLP-WebUI-${ver}-Portable-MacOS-arm64.zip"
+          zip -r "$zip_name" YT-DLP-WebUI
+          echo "Package created: $zip_name"
+          echo "ZIP_NAME=$zip_name" >> "$GITHUB_ENV"
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ env.ZIP_NAME }}
+          draft: false
+          prerelease: false
+
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Staging Directory
+        shell: bash
+        run: |
+          stage="YT-DLP-WebUI"
+          mkdir -p "$stage/bin" "$stage/downloads" "$stage/logs"
+
+          cp app.py "$stage/"
+          cp start.sh "$stage/"
+          cp stop.sh "$stage/"
+          cp config.example.json "$stage/config.json"
+          cp README.md "$stage/"
+          cp LICENSE "$stage/"
+          cp requirements.txt "$stage/"
+          cp -r static "$stage/"
+          cp -r templates "$stage/"
+          chmod +x "$stage/start.sh" "$stage/stop.sh"
+
+      - name: Download yt-dlp & FFmpeg
+        shell: bash
+        run: |
+          stage="YT-DLP-WebUI"
+          echo "Downloading yt-dlp_linux..."
+          curl -sSL -f -o "$stage/bin/yt-dlp" "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux"
+          chmod +x "$stage/bin/yt-dlp"
+
+          echo "Downloading ffmpeg..."
+          curl -sSL -f -o ffmpeg.tar.xz "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+          mkdir -p ffmpeg_extracted
+          tar -xJf ffmpeg.tar.xz -C ffmpeg_extracted
+          find ffmpeg_extracted -type f -name "ffmpeg" -exec cp {} "$stage/bin/" \;
+          find ffmpeg_extracted -type f -name "ffprobe" -exec cp {} "$stage/bin/" \;
+          chmod +x "$stage/bin/ffmpeg" "$stage/bin/ffprobe"
+          rm -rf ffmpeg.tar.xz ffmpeg_extracted
+
+      - name: Create Portable Zip Package
+        shell: bash
+        run: |
+          ver="${GITHUB_REF_NAME:-latest}"
+          zip_name="YT-DLP-WebUI-${ver}-Portable-Linux-x64.zip"
+          zip -r "$zip_name" YT-DLP-WebUI
+          echo "Package created: $zip_name"
+          echo "ZIP_NAME=$zip_name" >> "$GITHUB_ENV"
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ env.ZIP_NAME }}
+          draft: false
+          prerelease: false
