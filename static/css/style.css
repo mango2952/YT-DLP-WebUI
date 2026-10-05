@@ -580,7 +580,8 @@ option, optgroup {
   cursor: pointer;
 }
 
-.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle input,
+.toggle-mini input { opacity: 0; width: 0; height: 0; position: absolute; }
 
 .toggle-track {
   width: 40px;

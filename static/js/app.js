@@ -32,6 +32,9 @@ const I18N = {
     optSubtitle: '字幕',
     optSubtitleLang: '字幕语言',
     optEmbedSub: '嵌入视频',
+    optTurbo: '⚡ 极速模式',
+    optTurboLabel: '下载加速',
+    optTurboTitle: '多线程并行下载视频分片，下载更快；仅对 HLS/DASH 等分片流有效',
     optPlaylist: '播放列表范围',
     btnDownload: '开始下载',
     historyTitle: '下载历史',
@@ -180,6 +183,9 @@ const I18N = {
     optSubtitle: 'Subtitles',
     optSubtitleLang: 'Subtitle Language',
     optEmbedSub: 'Embed',
+    optTurbo: '⚡ Turbo mode',
+    optTurboLabel: 'Acceleration',
+    optTurboTitle: 'Multi-threaded parallel download of video fragments for faster speed; only effective for segmented streams (HLS/DASH)',
     optPlaylist: 'Playlist Range',
     btnDownload: 'Start Download',
     historyTitle: 'Download History',
@@ -867,6 +873,7 @@ async function startDownload() {
     audio_format: document.getElementById('audio-format-select')?.value || 'mp3',
     subtitle_langs: document.getElementById('subtitle-langs')?.value || 'zh-Hans,zh,en',
     embed_subtitles: document.getElementById('chk-embed-sub')?.checked || false,
+    turbo_mode: document.getElementById('chk-turbo')?.checked || false,
     playlist_start: document.getElementById('pl-start')?.value || '',
     playlist_end:   document.getElementById('pl-end')?.value || '',
     cookie_mode: cookieModeSelect ? cookieModeSelect.value : 'file',
@@ -1624,6 +1631,10 @@ async function loadSettings() {
     if (browserSelect) {
       browserSelect.value = cfg.browser_name || 'chrome';
     }
+    const chkTurbo = document.getElementById('chk-turbo');
+    if (chkTurbo && cfg.turbo_mode !== undefined) {
+      chkTurbo.checked = Boolean(cfg.turbo_mode);
+    }
     refreshCookieStatus();
   } catch (e) {
     console.error(e);
@@ -1642,6 +1653,7 @@ async function saveSettings() {
     cookie_mode:    cookieModeSelect ? cookieModeSelect.value : 'file',
     browser_name:   browserNameSelect ? browserNameSelect.value : 'chrome',
     language:       currentLang,
+    turbo_mode:     document.getElementById('chk-turbo')?.checked || false,
   };
   await fetch('/api/config', {
     method: 'POST',
@@ -2084,6 +2096,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 初始加载
   loadVersion();
   loadHistory();
+  loadSettings();
   refreshCookieStatus();
 
   // 粘贴即识别

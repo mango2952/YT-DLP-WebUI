@@ -54,6 +54,7 @@ DEFAULT_CONFIG = {
     "subtitle_langs": "zh-Hans,zh,en",
     "embed_subtitles": False,
     "write_subtitles": True,
+    "turbo_mode": False,
 }
 
 # ── 全局状态 ──────────────────────────────────────────────────────────────────
@@ -460,6 +461,11 @@ def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
     speed_limit = opts.get("speed_limit") or cfg.get("speed_limit", "")
     if speed_limit:
         cmd += ["--limit-rate", speed_limit]
+
+    # 极速模式（多线程并行下载分片）
+    turbo = opts.get("turbo_mode") or cfg.get("turbo_mode", False)
+    if turbo:
+        cmd += ["--concurrent-fragments", "8"]
 
     # Cookie 设置（优先使用文件或浏览器）
     cookie_mode = opts.get("cookie_mode") or cfg.get("cookie_mode", "file")
@@ -1586,6 +1592,7 @@ def api_download():
         "cookie_file":        data.get("cookie_file") or cfg.get("cookie_file", "cookies.txt"),
         "subtitle_langs":     data.get("subtitle_langs") or cfg.get("subtitle_langs"),
         "embed_subtitles":    data.get("embed_subtitles", False),
+        "turbo_mode":         bool(data.get("turbo_mode", False)),
         "playlist_start":     data.get("playlist_start", ""),
         "playlist_end":       data.get("playlist_end", ""),
         "formats":            formats,
@@ -1833,6 +1840,8 @@ def api_config_set():
     for k, v in data.items():
         if k in allowed:
             cfg[k] = v
+    if "turbo_mode" in data:
+        cfg["turbo_mode"] = bool(data.get("turbo_mode", False))
     save_config(cfg)
     try:
         download_semaphore.set_limit(int(cfg.get("max_concurrent", 3)))
