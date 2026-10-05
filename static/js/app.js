@@ -85,6 +85,7 @@ const I18N = {
     toastFileNotFound: '文件不存在或已被移动',
     toastCopied: '已复制到剪贴板',
     toastDeleted: '记录已删除',
+    statusQueued: '排队中',
     statusRunning: '下载中',
     statusSuccess: '完成',
     statusError: '失败',
@@ -182,6 +183,7 @@ const I18N = {
     toastFileNotFound: 'File not found or moved',
     toastCopied: 'Copied to clipboard',
     toastDeleted: 'Record deleted',
+    statusQueued: 'Queued',
     statusRunning: 'Downloading',
     statusSuccess: 'Done',
     statusError: 'Error',
@@ -222,6 +224,10 @@ function applyI18n() {
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+  });
+  document.querySelectorAll('.task-badge[data-status]').forEach(el => {
+    const s = el.dataset.status;
+    el.textContent = t('status' + s.charAt(0).toUpperCase() + s.slice(1));
   });
   document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
 }
@@ -421,7 +427,7 @@ async function startDownload() {
     if (!res.ok) throw new Error(data.error || 'Error');
 
     showToast(t('toastDownloadStarted'), 'success');
-    createTaskCard(data.task_id, urlsRaw.split('\n').filter(Boolean));
+    createTaskCard(data.task_id, urlsRaw.split('\n').filter(Boolean), data.status || 'queued');
     document.getElementById('url-input').value = '';
     document.getElementById('video-info-box').classList.add('hidden');
   } catch (err) {
@@ -430,15 +436,16 @@ async function startDownload() {
 }
 
 // ── 任务卡片 ──────────────────────────────────────────────────────────────────
-function createTaskCard(taskId, urls) {
+function createTaskCard(taskId, urls, initialStatus = 'queued') {
   const tpl = document.getElementById('task-card-tpl');
   const clone = tpl.content.cloneNode(true);
   const card = clone.querySelector('.task-card');
   card.dataset.taskId = taskId;
 
   const badge = card.querySelector('.task-badge');
-  badge.classList.add('running');
-  badge.textContent = t('statusRunning');
+  badge.dataset.status = initialStatus;
+  badge.classList.add(initialStatus);
+  badge.textContent = t('status' + initialStatus.charAt(0).toUpperCase() + initialStatus.slice(1));
 
   const titleEl = card.querySelector('.task-title');
   titleEl.textContent = urls.length === 1 ? urls[0] : `${urls.length} 个链接`;
@@ -505,11 +512,20 @@ function startSSE(taskId, card) {
 
   function setStatus(status) {
     badge.className = 'task-badge';
+    badge.dataset.status = status;
     badge.classList.add(status);
     badge.textContent = t('status' + status.charAt(0).toUpperCase() + status.slice(1));
   }
 
+  es.addEventListener('status', e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.status) setStatus(d.status);
+    } catch (_) {}
+  });
+
   es.addEventListener('task_info', e => {
+    setStatus('running');
     const d = JSON.parse(e.data);
     title.textContent = d.url;
     if (d.log_file) card.dataset.logFile = d.log_file;
