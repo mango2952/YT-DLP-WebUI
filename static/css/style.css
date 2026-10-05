@@ -359,6 +359,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .adv-url-label {
@@ -376,13 +377,17 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .adv-select-item {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: 1 1 150px;
+  min-width: 0;
 }
 
 .adv-select-label {
@@ -392,8 +397,8 @@ body {
 }
 
 .adv-format-select {
-  flex-shrink: 0;
-  width: 175px;
+  flex: 1 1 150px;
+  min-width: 0;
   max-width: 220px;
   font-size: 12px;
 }
