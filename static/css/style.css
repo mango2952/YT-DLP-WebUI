@@ -537,6 +537,12 @@ body {
 }
 .opt-select { cursor: pointer; }
 
+/* 原生下拉选项强制深色：兜底保证所有下拉框可读（配合 :root 的 color-scheme） */
+option, optgroup {
+  background-color: #15181e;
+  color: var(--text-primary);
+}
+
 .opt-input-sm { width: auto; max-width: 120px; }
 
 /* Toggle */
