@@ -4,13 +4,13 @@
 
 **现代化、免安装、解压即用的便携式视频/音频下载工具**
 
-基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 与 [FFmpeg](https://ffmpeg.org/) 开发，采用 **Google Antigravity** 智能编程助手全栈设计，内置极速轻量 Web 界面。
+基于 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 与 [FFmpeg](https://ffmpeg.org/) 开发，采用 **Muse AI** 与 **Google Antigravity** 协作设计开发，内置极速轻量 Web 界面。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: Windows | macOS | Linux](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
 [![yt--dlp](https://img.shields.io/badge/yt--dlp-Latest-red.svg)](https://github.com/yt-dlp/yt-dlp)
-[![Built with: Google Antigravity](https://img.shields.io/badge/Built%20with-Google%20Antigravity-4285F4.svg)](https://antigravity.google/)
+[![Built with: Muse AI + Antigravity](https://img.shields.io/badge/Built%20with-Muse%20AI%20%2B%20Antigravity-4285F4.svg)](https://antigravity.google/)
 
 [English Documentation](README_EN.md) · [下载最新发布版](../../releases) · [报告问题](../../issues)
 
@@ -21,7 +21,7 @@
 ## ✨ 核心亮点
 
 - 🚀 **真正解压即用（Zero-Config Portable）**
-  无需在电脑上预装 Python、Git、FFmpeg 或任何依赖环境，拷贝文件夹到任何 Windows 电脑，双击 `start.bat` 即可使用。
+  无需在电脑上预装 Python、Git、FFmpeg 或任何依赖环境，拷贝文件夹到任何电脑 —— Windows 双击 `start.bat`，macOS / Linux 终端运行 `./start.sh` 即可使用。
 - 🌐 **原生优先调用浏览器 Cookie（免装插件）**
   支持直接联动系统中的 **Microsoft Edge、Google Chrome、Firefox、Brave 等主流浏览器**，自动提取已登录账号 Cookie，下载 1080P/4K/8K、会员专享、年龄限制视频无需繁琐导出 `cookies.txt`！同时仍保留文件上传模式。
 - 🎬 **下载完成后一键直达**
@@ -69,7 +69,7 @@
 
 ```bash
 # 1. 克隆本仓库
-git clone https://github.com/your-username/YT-DLP-WebUI.git
+git clone https://github.com/mango2952/YT-DLP-WebUI.git
 cd YT-DLP-WebUI
 
 # 2. 安装依赖并自动补全 yt-dlp / ffmpeg 二进制（Windows）
@@ -120,15 +120,17 @@ YT-DLP-WebUI/
 ├── app.py                  # Flask 后端核心逻辑与 API
 ├── start.bat               # Windows 启动脚本（双击运行）
 ├── stop.bat                # Windows 停止后台服务脚本
-├── pack_portable.bat       # 本地一键打包便携发布包脚本
-├── setup_dev.bat           # 开发者源码环境一键安装脚本
+├── start.sh                # macOS / Linux 启动脚本（终端运行 ./start.sh）
+├── stop.sh                 # macOS / Linux 停止后台服务脚本
+├── pack_portable.bat       # 本地一键打包便携发布包脚本（Windows）
+├── setup_dev.bat           # 开发者源码环境一键安装脚本（Windows）
 ├── config.example.json     # 默认配置文件范本
 ├── requirements.txt        # Python 依赖清单
 ├── LICENSE                 # MIT 开源许可证
-├── bin/                    # 外部工具目录 (便携版内置)
-│   ├── yt-dlp.exe          # yt-dlp 官方核心可执行文件
-│   └── ffmpeg.exe          # 音视频处理与转码组件
-├── python/                 # Windows 嵌入式便携 Python 运行时 (便携版内置)
+├── bin/                    # 外部工具目录 (便携版内置，随平台不同)
+│   ├── yt-dlp(.exe)         # yt-dlp 官方核心可执行文件
+│   └── ffmpeg(.exe)         # 音视频处理与转码组件
+├── python/                 # Windows 嵌入式便携 Python 运行时 (仅 Windows 便携版内置)
 ├── static/                 # 前端 CSS、JavaScript、图标资源
 │   ├── css/style.css
 │   └── js/app.js
@@ -161,9 +163,12 @@ YT-DLP-WebUI/
 ## 🛠️ 构建与发布自动化
 
 本项目包含完善的 GitHub Actions 持续集成流（`.github/workflows/release.yml`）：
-当你向 GitHub 推送版本标签（如 `v1.0.0`）时，GitHub 自动化集群将自动拉取官方最新嵌入式 Python、FFmpeg 与 yt-dlp，自动打包出开箱即用的 `YT-DLP-WebUI-vX.X.X-Portable-Windows-x64.zip` 并发布到 GitHub Releases。
+当你向 GitHub 推送版本标签（如 `v1.3.0`）时，GitHub 自动化集群将自动拉取官方最新 yt-dlp、FFmpeg（Windows 还包括嵌入式 Python），自动打包出三个平台开箱即用的便携包并发布到 GitHub Releases：
+- `YT-DLP-WebUI-vX.X.X-Portable-Windows-x64.zip`
+- `YT-DLP-WebUI-vX.X.X-Portable-MacOS-arm64.zip`
+- `YT-DLP-WebUI-vX.X.X-Portable-Linux-x64.zip`
 
-如果你希望在本地手动打包，直接双击运行 **`pack_portable.bat`** 即可在根目录下生成干净的便携压缩包。
+如果你希望在本地手动打包（Windows），直接双击运行 **`pack_portable.bat`** 即可在根目录下生成干净的便携压缩包。
 
 ---
 
@@ -189,13 +194,15 @@ YT-DLP-WebUI/
 
 ---
 
-## 🤖 开发背景与致谢 (Built with Antigravity)
+## 🤖 开发背景与致谢 (Built with Muse AI & Antigravity)
 
-本项目完全基于 **Google DeepMind Antigravity** 智能编程助手驱动开发：
-- **便携式架构**：零配置内置嵌入式 Python、FFmpeg 与 yt-dlp，实现开箱即用。
+本项目由 **Muse AI** 与 **Google Antigravity** 协作开发：
+- **Muse AI**：需求规划、任务分解、技术选型、代码审查、测试验证与发版管理。
+- **Google Antigravity**：全栈代码编写与实现。
+- **便携式架构**：零配置内置嵌入式 Python（Windows）、FFmpeg 与 yt-dlp，实现开箱即用。
 - **原生能力创新**：优先联动本地主流浏览器获取 Cookie，告别繁琐插件导出。
 - **UI/UX 质感设计**：现代化深色玻态拟物风格、流式下载进度与实时交互式日志查看弹窗。
-- **代码工程化**：从需求拆解、全栈代码编写、自动化构建到开源发布，均由人机结对协作高效落地。
+- **代码工程化**：从需求拆解、全栈代码编写、自动化构建到开源发布，均由 AI 结对协作高效落地。
 
 ---
 

@@ -4,13 +4,13 @@
 
 **Modern, zero-install, portable video/audio downloader WebUI**
 
-Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpeg.org/), designed and built with **Google Antigravity**.
+Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpeg.org/), designed and built with **Muse AI** and **Google Antigravity**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: Windows | macOS | Linux](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
 [![yt--dlp](https://img.shields.io/badge/yt--dlp-Latest-red.svg)](https://github.com/yt-dlp/yt-dlp)
-[![Built with: Google Antigravity](https://img.shields.io/badge/Built%20with-Google%20Antigravity-4285F4.svg)](https://antigravity.google/)
+[![Built with: Muse AI + Antigravity](https://img.shields.io/badge/Built%20with-Muse%20AI%20%2B%20Antigravity-4285F4.svg)](https://antigravity.google/)
 
 [中文说明文档](README.md) · [Download Releases](../../releases) · [Report Issue](../../issues)
 
@@ -21,7 +21,7 @@ Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpe
 ## ✨ Features
 
 - 🚀 **Zero-Config Portable Edition**
-  No need to install Python, Git, FFmpeg, or any dependencies. Copy the folder to any Windows machine and double-click `start.bat`.
+  No need to install Python, Git, FFmpeg, or any dependencies. Copy the folder to any computer — double-click `start.bat` on Windows, or run `./start.sh` from a terminal on macOS / Linux.
 - 🌐 **Browser Cookie Integration (No Extensions Required)**
   Directly extract logged-in cookies from installed browsers (**Microsoft Edge, Google Chrome, Firefox, Brave, Opera, Vivaldi**). Download 1080P/4K, age-restricted, and member-only videos without manual `cookies.txt` exports!
 - 🎬 **Instant File & Folder Access**
@@ -67,7 +67,7 @@ Visit the [Releases page](../../releases/latest) to download the portable packag
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/your-username/YT-DLP-WebUI.git
+git clone https://github.com/mango2952/YT-DLP-WebUI.git
 cd YT-DLP-WebUI
 
 # 2. Automatically setup dependencies and binaries (Windows)
@@ -92,15 +92,17 @@ YT-DLP-WebUI/
 ├── app.py                  # Backend Flask application and API routes
 ├── start.bat               # Windows startup batch script
 ├── stop.bat                # Windows service termination script
-├── pack_portable.bat       # Script to package clean portable release
-├── setup_dev.bat           # Developer setup script to fetch dependencies
+├── start.sh                # macOS / Linux startup script (run ./start.sh)
+├── stop.sh                 # macOS / Linux service termination script
+├── pack_portable.bat       # Script to package clean portable release (Windows)
+├── setup_dev.bat           # Developer setup script to fetch dependencies (Windows)
 ├── config.example.json     # Configuration template
 ├── requirements.txt        # Python package dependencies
 ├── LICENSE                 # MIT License
-├── bin/                    # Binaries (included in portable release)
-│   ├── yt-dlp.exe          # yt-dlp executable
-│   └── ffmpeg.exe          # FFmpeg muxer & encoder
-├── python/                 # Embedded Windows Python (included in portable release)
+├── bin/                    # Binaries (included in portable release, platform-specific)
+│   ├── yt-dlp(.exe)         # yt-dlp executable
+│   └── ffmpeg(.exe)         # FFmpeg muxer & encoder
+├── python/                 # Embedded Python runtime (Windows portable release only)
 ├── static/                 # Frontend assets (CSS, JS)
 ├── templates/              # HTML templates
 └── downloads/              # Default download directory
@@ -111,9 +113,9 @@ YT-DLP-WebUI/
 ## 🛠️ Automated CI/CD Releases
 
 This repository includes a GitHub Actions workflow (`.github/workflows/release.yml`):
-Whenever a version tag (e.g. `v1.0.0`) is pushed, GitHub Actions automatically builds the full portable zip with the latest embedded Python, FFmpeg, and yt-dlp, and publishes it to GitHub Releases.
+Whenever a version tag (e.g. `v1.3.0`) is pushed, GitHub Actions automatically builds portable zips for all three platforms (Windows x64, macOS arm64, Linux x64) with the latest yt-dlp, FFmpeg (plus embedded Python on Windows), and publishes them to GitHub Releases.
 
-You can also create a release locally by running `pack_portable.bat`.
+You can also create a release locally (Windows) by running `pack_portable.bat`.
 
 ---
 
@@ -139,13 +141,15 @@ If **YT-DLP WebUI** saves you time and makes downloading easier, consider buying
 
 ---
 
-## 🤖 Built with Antigravity
+## 🤖 Built with Muse AI & Antigravity
 
-This project was fully architected, designed, and implemented using **Google DeepMind Antigravity**, an advanced agentic coding assistant:
-- **Zero-Dependency Portable Bundle**: Self-contained embedded Python + FFmpeg + yt-dlp environment.
+This project was developed collaboratively by **Muse AI** and **Google Antigravity**:
+- **Muse AI**: requirements planning, task breakdown, tech decisions, code review, testing, and release management.
+- **Google Antigravity**: full-stack code implementation.
+- **Zero-Dependency Portable Bundle**: Self-contained embedded Python (Windows) + FFmpeg + yt-dlp environment.
 - **Native Browser Cookie Integration**: Direct extraction from Edge, Chrome, Firefox without browser extensions.
 - **Glassmorphic UI & Interactive Log Modal**: Built using vanilla modern HTML/CSS/JS without heavyweight framework bloat.
-- **Full-Cycle Pair Programming**: From feature requirements, troubleshooting, CI/CD to GitHub open-source release.
+- **Full-Cycle AI Pair Programming**: From feature requirements, troubleshooting, CI/CD to GitHub open-source release.
 
 ---
 
