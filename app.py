@@ -1844,12 +1844,12 @@ def api_version():
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
         return jsonify({
-            "app": "1.0.3",
+            "app": "1.1.0",
             "yt_dlp": result.stdout.strip(),
             "ffmpeg": _ffmpeg_version(),
         })
     except Exception as e:
-        return jsonify({"app": "1.0.3", "yt_dlp": "未知", "ffmpeg": "未知", "error": str(e)})
+        return jsonify({"app": "1.1.0", "yt_dlp": "未知", "ffmpeg": "未知", "error": str(e)})
 
 
 def _ffmpeg_version() -> str:
