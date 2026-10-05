@@ -51,18 +51,35 @@
           <span class="card-sub" data-i18n="inputSub">支持 YouTube、Bilibili、Twitter 等 1000+ 平台</span>
         </div>
         <div class="url-input-wrap">
-          <textarea
-            id="url-input"
-            class="url-textarea"
-            data-i18n-placeholder="urlPlaceholder"
-            placeholder="粘贴视频或播放列表链接，多个链接请换行输入…"
-            rows="3"
-            spellcheck="false"
-          ></textarea>
-          <button id="btn-fetch-info" class="btn btn-secondary btn-sm fetch-btn" data-i18n="btnFetch">
-            <span class="btn-icon-inline">🔍</span>
-            <span data-i18n="btnFetch">识别</span>
-          </button>
+          <div id="url-rows-container" class="url-rows-container">
+            <div class="url-input-row" data-row-idx="0">
+              <input
+                type="text"
+                id="url-input"
+                class="url-row-input"
+                data-i18n-placeholder="urlPlaceholder"
+                placeholder="粘贴视频或播放列表链接…"
+                spellcheck="false"
+              />
+              <button type="button" class="btn btn-secondary btn-sm format-picker-btn" title="选择格式">
+                <span class="picker-spinner hidden">⏳</span>
+                <span class="picker-text">🎛️ 格式</span>
+              </button>
+              <select class="format-picker-select hidden" title="选择格式">
+                <option value="">默认 (全局设置)</option>
+              </select>
+              <button type="button" class="btn btn-ghost btn-sm btn-remove-row hidden" title="删除行">✕</button>
+            </div>
+          </div>
+          <div class="url-row-toolbar">
+            <button type="button" id="btn-add-url-row" class="btn btn-ghost btn-xs">
+              <span class="btn-icon-inline">➕</span> 添加链接
+            </button>
+            <button id="btn-fetch-info" class="btn btn-secondary btn-sm fetch-btn" data-i18n="btnFetch">
+              <span class="btn-icon-inline">🔍</span>
+              <span data-i18n="btnFetch">识别</span>
+            </button>
+          </div>
         </div>
         <!-- 视频信息预览 -->
         <div id="video-info-box" class="video-info-box hidden">

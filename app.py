@@ -59,6 +59,11 @@ TERMINAL_STATUSES = {"success", "partial", "cancelled", "error", "paused"}
 FINISHED_STATUSES = {"success", "partial", "cancelled", "error"}
 MAX_FINISHED_TASKS = 200
 
+# 格式缓存（URL -> {"expires_at": float, "data": dict}）
+_formats_cache: dict[str, dict] = {}
+_formats_cache_lock = threading.Lock()
+FORMATS_CACHE_TTL = 3600
+
 # ── Flask 初始化 ──────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config["JSON_AS_ASCII"] = False
@@ -472,40 +477,74 @@ def build_ytdlp_cmd(url: str, opts: dict, cfg: dict, task_id: str) -> list[str]:
         cmd += ["--write-thumbnail", "--convert-thumbnails", "jpg"]
 
     # 格式选择（视频 / 音频）
+    per_url_format = None
+    formats_map = opts.get("formats")
+    if not isinstance(formats_map, dict) and task_id:
+        with tasks_lock:
+            formats_map = (tasks.get(task_id) or {}).get("formats")
+    if isinstance(formats_map, dict):
+        raw_fmt = formats_map.get(url) or formats_map.get(url.strip())
+        if raw_fmt and isinstance(raw_fmt, str):
+            raw_fmt = raw_fmt.strip()
+            if re.match(r'^[A-Za-z0-9_\-\[\]+]+$', raw_fmt):
+                per_url_format = raw_fmt
+
     quality = opts.get("quality", "best")
     video_fmt = opts.get("video_format", "mp4")
     audio_fmt = opts.get("audio_format", "mp3")
 
-    if quality == "best":
-        fmt_str = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
-    elif quality == "audio_only":
-        fmt_str = "bestaudio/best"
+    if per_url_format:
+        if dl_video or dl_audio:
+            cmd += ["-f", per_url_format]
+            if dl_video and dl_audio:
+                cmd += [
+                    "--merge-output-format", video_fmt,
+                    "-x",
+                    "--audio-format", audio_fmt,
+                    "--audio-quality", "0",
+                    "-k",
+                ]
+            elif dl_audio and not dl_video:
+                cmd += [
+                    "-x",
+                    "--audio-format", audio_fmt,
+                    "--audio-quality", "0",
+                ]
+            elif dl_video:
+                cmd += ["--merge-output-format", video_fmt]
+        else:
+            cmd += ["--skip-download"]
     else:
-        fmt_str = f"bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"
+        if quality == "best":
+            fmt_str = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"
+        elif quality == "audio_only":
+            fmt_str = "bestaudio/best"
+        else:
+            fmt_str = f"bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={quality}]+bestaudio/best[height<={quality}]"
 
-    if dl_video and dl_audio:
-        # 同时下载视频并提取独立音频（-k 保留合并后的视频）
-        cmd += [
-            "-f", fmt_str,
-            "--merge-output-format", video_fmt,
-            "-x",
-            "--audio-format", audio_fmt,
-            "--audio-quality", "0",
-            "-k",
-        ]
-    elif dl_video:
-        # 仅下载视频
-        cmd += ["-f", fmt_str, "--merge-output-format", video_fmt]
-    elif dl_audio:
-        # 仅下载音频
-        cmd += [
-            "-x",
-            "--audio-format", audio_fmt,
-            "--audio-quality", "0",
-        ]
-    else:
-        # 既不下载视频也不下载音频（如只下载封面或字幕）
-        cmd += ["--skip-download"]
+        if dl_video and dl_audio:
+            # 同时下载视频并提取独立音频（-k 保留合并后的视频）
+            cmd += [
+                "-f", fmt_str,
+                "--merge-output-format", video_fmt,
+                "-x",
+                "--audio-format", audio_fmt,
+                "--audio-quality", "0",
+                "-k",
+            ]
+        elif dl_video:
+            # 仅下载视频
+            cmd += ["-f", fmt_str, "--merge-output-format", video_fmt]
+        elif dl_audio:
+            # 仅下载音频
+            cmd += [
+                "-x",
+                "--audio-format", audio_fmt,
+                "--audio-quality", "0",
+            ]
+        else:
+            # 既不下载视频也不下载音频（如只下载封面或字幕）
+            cmd += ["--skip-download"]
 
     # 字幕
     if dl_subs:
@@ -1154,10 +1193,133 @@ def api_info():
         return jsonify({"error": str(e)}), 500
 
 
-def _enqueue_task(urls: list[str], opts: dict, cfg: dict) -> tuple[str, int]:
+# ── 获取可用格式列表 ──────────────────────────────────────────────────────────
+@app.route("/api/formats", methods=["POST"])
+def api_formats():
+    data = request.get_json(force=True, silent=True) or {}
+    url = data.get("url")
+    if not url or not isinstance(url, str) or not url.strip():
+        return jsonify({"error": "URL 不能为空"}), 400
+
+    url = url.strip()
+
+    now = time.time()
+    with _formats_cache_lock:
+        # 清理过期项
+        expired = [k for k, v in _formats_cache.items() if v.get("expires_at", 0) <= now]
+        for k in expired:
+            del _formats_cache[k]
+        if url in _formats_cache:
+            return jsonify(_formats_cache[url].get("data", {}))
+
+    # 使用与 download worker 相同的方式解析 yt-dlp 路径
+    cmd = [
+        str(YTDLP_EXE),
+        "-J",
+        "--no-playlist",
+        "--socket-timeout", "15",
+    ]
+    cfg = load_config()
+    proxy = (data.get("proxy") or cfg.get("proxy", "")).strip()
+    if proxy:
+        cmd += ["--proxy", proxy]
+
+    cookie_file = cfg.get("cookie_file") or "cookies.txt"
+    cookie_path = Path(cookie_file)
+    if not cookie_path.is_absolute():
+        cookie_path = BASE_DIR / cookie_path
+    if cookie_path.exists() and cookie_path.stat().st_size > 0:
+        cmd += ["--cookies", str(cookie_path)]
+
+    cmd.append(url)
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
+        if result.returncode != 0:
+            err = result.stderr or result.stdout or "获取视频格式失败"
+            return jsonify({"error": err.strip()[:500]}), 400
+
+        info = json.loads(result.stdout)
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "请求超时（30秒），请检查网络或代理设置"}), 408
+    except FileNotFoundError:
+        return jsonify({"error": f"未找到 yt-dlp: {YTDLP_EXE}"}), 500
+    except json.JSONDecodeError:
+        return jsonify({"error": "解析 yt-dlp 输出失败"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    if info.get("_type") == "playlist" and info.get("entries"):
+        first_entry = info["entries"][0] if len(info["entries"]) > 0 else {}
+        title = first_entry.get("title") or info.get("title", "")
+        raw_formats = first_entry.get("formats", [])
+    else:
+        title = info.get("title", "")
+        raw_formats = info.get("formats")
+
+    if not raw_formats or not isinstance(raw_formats, list):
+        if info.get("format_id") or info.get("ext"):
+            raw_formats = [info]
+        else:
+            raw_formats = []
+
+    compact_formats = []
+    for f in raw_formats:
+        fid = f.get("format_id") or f.get("id")
+        if not fid:
+            continue
+        ext = f.get("ext")
+        w = f.get("width")
+        h = f.get("height")
+        res = f"{w}x{h}" if (w and h) else None
+        fps = f.get("fps")
+        filesize = f.get("filesize") or f.get("filesize_approx")
+        vcodec = f.get("vcodec")
+        acodec = f.get("acodec")
+        format_note = f.get("format_note")
+
+        compact_formats.append({
+            "id": str(fid),
+            "ext": ext,
+            "resolution": res,
+            "fps": fps,
+            "filesize": filesize,
+            "vcodec": vcodec,
+            "acodec": acodec,
+            "format_note": format_note,
+        })
+
+    response_data = {
+        "title": title,
+        "formats": compact_formats,
+    }
+
+    with _formats_cache_lock:
+        _formats_cache[url] = {
+            "expires_at": time.time() + FORMATS_CACHE_TTL,
+            "data": response_data,
+        }
+
+    return jsonify(response_data)
+
+
+def _enqueue_task(urls: list[str], opts: dict, cfg: dict, formats: dict | None = None) -> tuple[str, int]:
     task_id = str(uuid.uuid4())
     q: queue.Queue = queue.Queue(maxsize=200)
     q.task_id = task_id
+
+    if formats is None:
+        formats = (opts.get("formats") if isinstance(opts.get("formats"), dict) else {})
+    else:
+        opts["formats"] = formats
 
     with tasks_lock:
         queued_count = sum(1 for t in tasks.values() if t.get("status") == "queued" and not t.get("cancelled"))
@@ -1166,6 +1328,7 @@ def _enqueue_task(urls: list[str], opts: dict, cfg: dict) -> tuple[str, int]:
             "id": task_id,
             "urls": urls,
             "opts": opts,
+            "formats": formats,
             "status": "queued",
             "queue_position": queue_pos,
             "created_at": datetime.now().isoformat(),
@@ -1204,6 +1367,10 @@ def api_download():
         dl_video = (legacy_fmt == "video")
         dl_audio = (legacy_fmt == "audio")
 
+    formats = data.get("formats")
+    if not isinstance(formats, dict):
+        formats = {}
+
     opts = {
         "download_thumbnail": bool(data.get("download_thumbnail", False)),
         "download_video":     bool(dl_video if dl_video is not None else True),
@@ -1222,9 +1389,10 @@ def api_download():
         "embed_subtitles":    data.get("embed_subtitles", False),
         "playlist_start":     data.get("playlist_start", ""),
         "playlist_end":       data.get("playlist_end", ""),
+        "formats":            formats,
     }
 
-    task_id, queue_pos = _enqueue_task(urls, opts, cfg)
+    task_id, queue_pos = _enqueue_task(urls, opts, cfg, formats=formats)
     return jsonify({"task_id": task_id, "url_count": len(urls), "status": "queued", "queue_position": queue_pos})
 
 
@@ -1288,9 +1456,10 @@ def api_resume(task_id: str):
         task["cancelled"] = True
         task["finished_at"] = datetime.now().isoformat()
         opts = (task.get("opts") or {}).copy()
+        formats = (task.get("formats") or {}).copy()
 
     cfg = load_config()
-    new_task_id, queue_pos = _enqueue_task(remaining_urls, opts, cfg)
+    new_task_id, queue_pos = _enqueue_task(remaining_urls, opts, cfg, formats=formats)
 
     return jsonify({
         "task_id": new_task_id,
@@ -1304,6 +1473,7 @@ def api_resume(task_id: str):
 # ── 重试失败任务 ──────────────────────────────────────────────────────────────
 @app.route("/api/retry/<task_id>", methods=["POST"])
 def api_retry(task_id: str):
+    formats = {}
     with tasks_lock:
         task = tasks.get(task_id)
         if not task:
@@ -1322,17 +1492,19 @@ def api_retry(task_id: str):
                     seen.add(u)
                     urls.append(u)
             opts = (matching[0].get("opts") or {}).copy()
+            formats = (matching[0].get("formats") or {}).copy() if isinstance(matching[0].get("formats"), dict) else {}
         else:
             if task.get("status") not in ("error", "partial"):
                 return jsonify({"error": "任务状态不可重试，仅支持重试失败或部分失败的任务"}), 400
             urls = list(task.get("urls", []))
             opts = (task.get("opts") or {}).copy()
+            formats = (task.get("formats") or {}).copy() if isinstance(task.get("formats"), dict) else {}
 
     if not urls:
         return jsonify({"error": "没有可重试的链接"}), 400
 
     cfg = load_config()
-    new_task_id, queue_pos = _enqueue_task(urls, opts, cfg)
+    new_task_id, queue_pos = _enqueue_task(urls, opts, cfg, formats=formats)
 
     return jsonify({
         "task_id": new_task_id,

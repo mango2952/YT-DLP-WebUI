@@ -339,9 +339,240 @@ function initFormatToggle() {
 // 视频信息识别
 // ══════════════════════════════════════════════════════════════════════════════
 
+function formatOptionLabel(f) {
+  const isAudioOnly = f.vcodec === 'none' || (!f.resolution && f.acodec && f.acodec !== 'none');
+  const ext = f.ext || '';
+  if (isAudioOnly) {
+    let lbl = `audio only ${ext}`;
+    if (f.format_note && f.format_note.toLowerCase() !== 'tiny') lbl += ` (${f.format_note})`;
+    if (f.filesize) lbl += ` - ${formatFileSize(f.filesize)}`;
+    return lbl;
+  }
+  let res = f.format_note || '';
+  if (!res && f.resolution) {
+    const h = f.resolution.split('x')[1];
+    res = h ? `${h}p` : f.resolution;
+  }
+  let lbl = `${res ? res + ' ' : ''}${ext}`.trim();
+  if (f.fps && f.fps > 30) lbl += ` ${f.fps}fps`;
+  if (f.filesize) lbl += ` - ${formatFileSize(f.filesize)}`;
+  return lbl || f.id;
+}
+
+function formatFileSize(bytes) {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes} B`;
+}
+
+function updateRemoveButtonsVisibility() {
+  const container = document.getElementById('url-rows-container');
+  if (!container) return;
+  const rows = container.querySelectorAll('.url-input-row');
+  rows.forEach(r => {
+    const btnRemove = r.querySelector('.btn-remove-row');
+    if (btnRemove) {
+      if (rows.length > 1) {
+        btnRemove.classList.remove('hidden');
+      } else {
+        btnRemove.classList.add('hidden');
+      }
+    }
+  });
+}
+
+function bindUrlRowEvents(row) {
+  const input = row.querySelector('.url-row-input');
+  const btnPicker = row.querySelector('.format-picker-btn');
+  const btnRemove = row.querySelector('.btn-remove-row');
+
+  if (btnPicker) {
+    btnPicker.onclick = () => onFormatPickerClick(row);
+  }
+
+  if (btnRemove) {
+    btnRemove.onclick = () => {
+      const container = document.getElementById('url-rows-container');
+      if (container && container.querySelectorAll('.url-input-row').length > 1) {
+        row.remove();
+        updateRemoveButtonsVisibility();
+      }
+    };
+  }
+
+  if (input) {
+    input.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        startDownload();
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        addUrlRow('');
+      }
+    });
+
+    input.addEventListener('paste', e => {
+      const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+      if (text.includes('\n')) {
+        e.preventDefault();
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        if (!lines.length) return;
+        input.value = lines[0];
+        for (let i = 1; i < lines.length; i++) {
+          addUrlRow(lines[i]);
+        }
+      }
+    });
+  }
+}
+
+function addUrlRow(initialUrl = '') {
+  const container = document.getElementById('url-rows-container');
+  if (!container) return null;
+
+  const row = document.createElement('div');
+  row.className = 'url-input-row';
+  row.innerHTML = `
+    <input
+      type="text"
+      class="url-row-input"
+      data-i18n-placeholder="urlPlaceholder"
+      placeholder="粘贴视频或播放列表链接…"
+      spellcheck="false"
+      value="${initialUrl ? initialUrl.replace(/"/g, '&quot;') : ''}"
+    />
+    <button type="button" class="btn btn-secondary btn-sm format-picker-btn" title="选择格式">
+      <span class="picker-spinner hidden">⏳</span>
+      <span class="picker-text">🎛️ 格式</span>
+    </button>
+    <select class="format-picker-select hidden" title="选择格式">
+      <option value="">默认 (全局设置)</option>
+    </select>
+    <button type="button" class="btn btn-ghost btn-sm btn-remove-row" title="删除行">✕</button>
+  `;
+
+  container.appendChild(row);
+  bindUrlRowEvents(row);
+  updateRemoveButtonsVisibility();
+
+  const input = row.querySelector('.url-row-input');
+  if (!initialUrl && input) {
+    input.focus();
+  }
+  return row;
+}
+
+async function onFormatPickerClick(row) {
+  const input = row.querySelector('.url-row-input');
+  const url = input ? input.value.trim() : '';
+  if (!url) {
+    showToast(t('toastUrlEmpty') || '请先输入 URL', 'error');
+    if (input) input.focus();
+    return;
+  }
+
+  const btn = row.querySelector('.format-picker-btn');
+  const select = row.querySelector('.format-picker-select');
+  const spinner = btn ? btn.querySelector('.picker-spinner') : null;
+  const btnText = btn ? btn.querySelector('.picker-text') : null;
+
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.classList.remove('hidden');
+  if (btnText) btnText.textContent = ' 获取中…';
+
+  try {
+    const res = await fetch('/api/formats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || '获取格式失败');
+    }
+
+    if (select) {
+      select.innerHTML = '';
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = '默认 (全局设置)';
+      select.appendChild(defaultOpt);
+
+      const formats = data.formats || [];
+      if (!formats.length) {
+        showToast('未检测到可用格式，将使用默认质量设置', 'info');
+      } else {
+        formats.forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = formatOptionLabel(f);
+          select.appendChild(opt);
+        });
+        select.classList.remove('hidden');
+        select.focus();
+      }
+    }
+  } catch (err) {
+    showToast(`获取格式失败: ${err.message}`, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.classList.add('hidden');
+    if (btnText) btnText.textContent = '🎛️ 格式';
+  }
+}
+
+function getAllUrlRowsData() {
+  const container = document.getElementById('url-rows-container');
+  const urls = [];
+  const formats = {};
+
+  if (container) {
+    const rows = container.querySelectorAll('.url-input-row');
+    rows.forEach(r => {
+      const input = r.querySelector('.url-row-input');
+      const u = input ? input.value.trim() : '';
+      if (u) {
+        urls.push(u);
+        const sel = r.querySelector('.format-picker-select');
+        if (sel && sel.value) {
+          formats[u] = sel.value;
+        }
+      }
+    });
+  } else {
+    const el = document.getElementById('url-input');
+    if (el && el.value.trim()) {
+      urls.push(...el.value.trim().split('\n').map(s => s.trim()).filter(Boolean));
+    }
+  }
+
+  return { urls, formats };
+}
+
+function resetUrlRows() {
+  const container = document.getElementById('url-rows-container');
+  if (!container) return;
+  const rows = container.querySelectorAll('.url-input-row');
+  rows.forEach((r, idx) => {
+    if (idx === 0) {
+      const input = r.querySelector('.url-row-input');
+      if (input) input.value = '';
+      const sel = r.querySelector('.format-picker-select');
+      if (sel) {
+        sel.innerHTML = '<option value="">默认 (全局设置)</option>';
+        sel.classList.add('hidden');
+      }
+    } else {
+      r.remove();
+    }
+  });
+  updateRemoveButtonsVisibility();
+}
+
 async function fetchVideoInfo() {
-  const urlInput = document.getElementById('url-input');
-  const url = urlInput.value.trim().split('\n')[0].trim();
+  const { urls } = getAllUrlRowsData();
+  const url = urls.length > 0 ? urls[0] : (document.getElementById('url-input')?.value || '').trim().split('\n')[0].trim();
   if (!url) { showToast(t('toastUrlEmpty'), 'error'); return; }
 
   const btn = document.getElementById('btn-fetch-info');
@@ -406,8 +637,8 @@ function formatDuration(sec) {
 const activeTasks = new Map(); // task_id -> { card, eventSource }
 
 async function startDownload() {
-  const urlsRaw = document.getElementById('url-input').value.trim();
-  if (!urlsRaw) { showToast(t('toastUrlEmpty'), 'error'); return; }
+  const { urls, formats } = getAllUrlRowsData();
+  if (!urls.length) { showToast(t('toastUrlEmpty'), 'error'); return; }
 
   const dlThumbnail = document.getElementById('chk-thumbnail')?.checked || false;
   const dlVideo = document.getElementById('chk-video')?.checked || false;
@@ -423,7 +654,8 @@ async function startDownload() {
   const browserNameSelect = document.getElementById('cfg-browser-name');
 
   const payload = {
-    urls: urlsRaw,
+    urls: urls,
+    formats: formats,
     download_thumbnail: dlThumbnail,
     download_video: dlVideo,
     download_audio: dlAudio,
@@ -449,8 +681,8 @@ async function startDownload() {
     if (!res.ok) throw new Error(data.error || 'Error');
 
     showToast(t('toastDownloadStarted'), 'success');
-    createTaskCard(data.task_id, urlsRaw.split('\n').filter(Boolean), data.status || 'queued');
-    document.getElementById('url-input').value = '';
+    createTaskCard(data.task_id, urls, data.status || 'queued');
+    resetUrlRows();
     document.getElementById('video-info-box').classList.add('hidden');
   } catch (err) {
     showToast(err.message, 'error');
@@ -1498,10 +1730,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // URL 输入框 Ctrl+Enter 快捷下载
-  document.getElementById('url-input').addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') startDownload();
-  });
+  // URL 输入行事件初始化
+  const firstRow = document.querySelector('.url-input-row');
+  if (firstRow) {
+    bindUrlRowEvents(firstRow);
+    updateRemoveButtonsVisibility();
+  }
+
+  const btnAddUrlRow = document.getElementById('btn-add-url-row');
+  if (btnAddUrlRow) {
+    btnAddUrlRow.addEventListener('click', () => addUrlRow(''));
+  }
 
   // 初始加载
   loadVersion();
@@ -1509,12 +1748,15 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshCookieStatus();
 
   // 粘贴即识别
-  document.getElementById('url-input').addEventListener('paste', () => {
-    setTimeout(() => {
-      const val = document.getElementById('url-input').value.trim();
-      if (val && !val.includes('\n')) {
-        setTimeout(fetchVideoInfo, 300);
-      }
-    }, 50);
-  });
+  const firstInput = document.getElementById('url-input');
+  if (firstInput) {
+    firstInput.addEventListener('paste', () => {
+      setTimeout(() => {
+        const val = firstInput.value.trim();
+        if (val && !val.includes('\n')) {
+          setTimeout(fetchVideoInfo, 300);
+        }
+      }, 50);
+    });
+  }
 });
