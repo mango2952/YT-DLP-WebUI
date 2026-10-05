@@ -722,6 +722,8 @@ body {
 .task-badge.error    { background: rgba(252,129,129,0.15); color: var(--error); }
 .task-badge.merging  { background: rgba(246,173,85,0.15); color: var(--warning); }
 .task-badge.cancelled { background: rgba(255,255,255,0.08); color: var(--text-muted); }
+.task-badge.paused   { background: rgba(237,137,54,0.15); color: #ed8936; }
+.task-badge.partial  { background: rgba(246,173,85,0.15); color: var(--warning); }
 
 .task-title {
   font-size: 13px;
@@ -807,6 +809,8 @@ body {
 }
 .hist-status-dot.success { background: var(--success); box-shadow: 0 0 6px var(--success-glow); }
 .hist-status-dot.error   { background: var(--error); box-shadow: 0 0 6px var(--error-glow); }
+.hist-status-dot.paused  { background: #ed8936; box-shadow: 0 0 6px rgba(237,137,54,0.5); }
+.hist-status-dot.partial { background: var(--warning); box-shadow: 0 0 6px var(--warning-glow); }
 
 .hist-texts {
   display: flex;
