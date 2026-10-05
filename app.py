@@ -26,8 +26,9 @@ from flask import Flask, render_template, request, jsonify, Response, stream_wit
 # ── 路径配置 ─────────────────────────────────────────────────────────────────
 BASE_DIR   = Path(__file__).parent.resolve()
 BIN_DIR    = BASE_DIR / "bin"
-YTDLP_EXE  = BIN_DIR / "yt-dlp.exe"
-FFMPEG_EXE = BIN_DIR / "ffmpeg.exe"
+YTDLP_EXE  = BIN_DIR / ("yt-dlp" + (".exe" if sys.platform == "win32" else ""))
+FFMPEG_EXE = BIN_DIR / ("ffmpeg" + (".exe" if sys.platform == "win32" else ""))
+_ffmpeg_display_path = "bin\\ffmpeg.exe" if sys.platform == "win32" else "bin/ffmpeg"
 CONFIG_FILE  = BASE_DIR / "config.json"
 HISTORY_FILE = BASE_DIR / "history.json"
 DOWNLOADS_DIR = BASE_DIR / "downloads"
@@ -156,8 +157,8 @@ KNOWN_ERRORS = [
     {
         "patterns": [r"ffmpeg.*not found", r"ffmpeg is not installed", r"Postprocessing.*ffmpeg"],
         "type": "format",
-        "zh": "未找到 FFmpeg。请确认 bin\\ffmpeg.exe 文件存在。",
-        "en": "FFmpeg not found. Ensure bin\\ffmpeg.exe exists.",
+        "zh": f"未找到 FFmpeg。请确认 {_ffmpeg_display_path} 文件存在。",
+        "en": f"FFmpeg not found. Ensure {_ffmpeg_display_path} exists.",
     },
     {
         "patterns": [r"Requested format is not available", r"No video formats found"],
